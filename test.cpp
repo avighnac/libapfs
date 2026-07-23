@@ -133,7 +133,7 @@ public:
   std::string read_blocks(uint64_t block_num, uint64_t num_blocks = 1) {
     fseek(f, block_num * BLOCK_SIZE, SEEK_SET);
     std::string mem;
-    mem.reserve(block_num * num_blocks);
+    mem.reserve(BLOCK_SIZE * num_blocks);
     for (int i = 0; i < num_blocks; ++i) {
       mem.append(read_block(block_num + i));
     }
