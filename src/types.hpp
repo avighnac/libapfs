@@ -117,11 +117,12 @@ struct obj_phys_t {
 #define NX_TX_MIN_CHECKPOINT_COUNT 4
 #define NX_EPH_INFO_VERSION_1 1
 
-typedef enum {
+// Indexes into a container superblockʼs array of counters.
+enum nx_counter_id_t {
   NX_CNTR_OBJ_CKSUM_SET = 0,
   NX_CNTR_OBJ_CKSUM_FAIL = 1,
   NX_NUM_COUNTERS = 32
-} nx_counter_id_t;
+};
 
 struct nx_superblock_t {
   obj_phys_t nx_o;
@@ -191,13 +192,6 @@ struct nx_superblock_t {
 #define NX_DEFAULT_BLOCK_SIZE 4096
 #define NX_MAXIMUM_BLOCK_SIZE 65536
 #define NX_MINIMUM_CONTAINER_SIZE 1048576
-
-// Indexes into a container superblockʼs array of counters.
-enum nx_counter_id_t {
-  NX_CNTR_OBJ_CKSUM_SET = 0,
-  NX_CNTR_OBJ_CKSUM_FAIL = 1,
-  NX_NUM_COUNTERS = 32
-};
 
 // A mapping from an ephemeral object identifier to its physical address in the checkpoint data area.
 struct checkpoint_mapping_t {
@@ -322,6 +316,12 @@ struct wrapped_meta_crypto_state_t {
 
 #define APFS_MODIFIED_NAMELEN 32
 
+struct apfs_modified_by_t {
+  uint8_t id[APFS_MODIFIED_NAMELEN];
+  uint64_t timestamp;
+  xid_t last_xid;
+};
+
 // APFS superblock
 struct apfs_superblock_t {
   obj_phys_t apfs_o;
@@ -372,12 +372,6 @@ struct apfs_superblock_t {
   uint32_t apfs_fext_tree_type;
   uint32_t reserved_type;
   oid_t reserved_oid;
-};
-
-struct apfs_modified_by_t {
-  uint8_t id[APFS_MODIFIED_NAMELEN];
-  uint64_t timestamp;
-  xid_t last_xid;
 };
 
 // Volume flags
@@ -624,9 +618,9 @@ typedef enum {
 
 // Constants used with extended attributes.
 #define XATTR_MAX_EMBEDDED_SIZE 3804
-#define SYMLINK_EA_NAME ”com.apple.fs.symlink”
-#define FIRMLINK_EA_NAME ”com.apple.fs.firmlink”
-#define APFS_COW_EXEMPT_COUNT_NAME ”com.apple.fs.cow - exempt - file - count”
+#define SYMLINK_EA_NAME "com.apple.fs.symlink"
+#define FIRMLINK_EA_NAME "com.apple.fs.firmlink"
+#define APFS_COW_EXEMPT_COUNT_NAME "com.apple.fs.cow - exempt - file - count"
 
 // File-system object constants
 #define OWNING_OBJ_ID_INVALID ~0ULL
