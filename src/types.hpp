@@ -300,6 +300,28 @@ struct omap_snapshot_t {
 #define OMAP_REAP_PHASE_MAP_TREE 1
 #define OMAP_REAP_PHASE_SNAPSHOT_TREE 2
 
+typedef uint32_t cp_key_class_t;
+typedef uint32_t cp_key_os_version_t;
+typedef uint16_t cp_key_revision_t;
+typedef uint32_t crypto_flags_t;
+
+// Information about how the volume encryption key (VEK) is used to encrypt a file.
+struct wrapped_meta_crypto_state_t {
+  uint16_t major_version;
+  uint16_t minor_version;
+  crypto_flags_t cpflags;
+  cp_key_class_t persistent_class;
+  cp_key_os_version_t key_os_version;
+  cp_key_revision_t key_revision;
+  uint16_t unused;
+} __attribute__((aligned(2), packed));
+
+#define APFS_MAGIC 'BSPA'
+#define APFS_MAX_HIST 8
+#define APFS_VOLNAME_LEN 256
+
+#define APFS_MODIFIED_NAMELEN 32
+
 // APFS superblock
 struct apfs_superblock_t {
   obj_phys_t apfs_o;
@@ -351,12 +373,6 @@ struct apfs_superblock_t {
   uint32_t reserved_type;
   oid_t reserved_oid;
 };
-
-#define APFS_MAGIC 'BSPA'
-#define APFS_MAX_HIST 8
-#define APFS_VOLNAME_LEN 256
-
-#define APFS_MODIFIED_NAMELEN 32
 
 struct apfs_modified_by_t {
   uint8_t id[APFS_MODIFIED_NAMELEN];
@@ -423,3 +439,479 @@ struct apfs_modified_by_t {
 #define APFS_INCOMPAT_RESERVED_40 0x00000040LL
 #define APFS_SUPPORTED_INCOMPAT_MASK (APFS_INCOMPAT_CASE_INSENSITIVE | APFS_INCOMPAT_DATALESS_SNAPS | APFS_INCOMPAT_ENC_ROLLED | APFS_INCOMPAT_NORMALIZATION_INSENSITIVE | APFS_INCOMPAT_INCOMPLETE_RESTORE | APFS_INCOMPAT_SEALED_VOLUME | APFS_INCOMPAT_RESERVED_40)
 
+// A header used at the beginning of all file-system keys.
+struct j_key_t {
+  uint64_t obj_id_and_type;
+} __attribute__((packed));
+
+#define OBJ_ID_MASK 0x0fffffffffffffffULL
+#define OBJ_TYPE_MASK 0xf000000000000000ULL
+#define OBJ_TYPE_SHIFT 60
+
+#define SYSTEM_OBJ_ID_MARK 0x0fffffff00000000ULL
+
+// The key half of a directory-information record.
+struct j_inode_key_t {
+  j_key_t hdr;
+} __attribute__((packed));
+
+typedef uint32_t uid_t;
+typedef uint32_t gid_t;
+typedef uint16_t mode_t;
+
+// The value half of an inode record.
+struct j_inode_val_t {
+  uint64_t parent_id;
+  uint64_t private_id;
+  uint64_t create_time;
+  uint64_t mod_time;
+  uint64_t change_time;
+  uint64_t access_time;
+  uint64_t internal_flags;
+  union {
+    int32_t nchildren;
+    int32_t nlink;
+  };
+  cp_key_class_t default_protection_class;
+  uint32_t write_generation_counter;
+  uint32_t bsd_flags;
+  uid_t owner;
+  gid_t group;
+  mode_t mode;
+  uint16_t pad1;
+  uint64_t uncompressed_size;
+  uint8_t xfields[];
+} __attribute__((packed));
+
+// The key half of a directory entry record.
+struct j_drec_key_t {
+  j_key_t hdr;
+  uint16_t name_len;
+  uint8_t name[0];
+} __attribute__((packed));
+
+// The key half of a directory entry record, including a precomputed hash of its name.
+struct j_drec_hashed_key_t {
+  j_key_t hdr;
+  uint32_t name_len_and_hash;
+  uint8_t name[0];
+} __attribute__((packed));
+
+#define J_DREC_LEN_MASK 0x000003ff
+#define J_DREC_HASH_MASK 0xfffff400
+#define J_DREC_HASH_SHIFT 10
+
+// The value half of a directory entry record.
+struct j_drec_val_t {
+  uint64_t file_id;
+  uint64_t date_added;
+  uint16_t flags;
+  uint8_t xfields[];
+} __attribute__((packed));
+
+// The key half of a directory-information record.
+struct j_dir_stats_key_t {
+  j_key_t hdr;
+} __attribute__((packed));
+
+// The value half of a directory-information record.
+struct j_dir_stats_val_t {
+  uint64_t num_children;
+  uint64_t total_size;
+  uint64_t chained_key;
+  uint64_t gen_count;
+} __attribute__((packed));
+
+// The key half of an extended attribute record.
+struct j_xattr_key_t {
+  j_key_t hdr;
+  uint16_t name_len;
+  uint8_t name[0];
+} __attribute__((packed));
+
+// The value half of an extended attribute record.
+struct j_xattr_val_t {
+  uint16_t flags;
+  uint16_t xdata_len;
+  uint8_t xdata[0];
+} __attribute__((packed));
+
+// The type of a file-system record.
+typedef enum {
+  APFS_TYPE_ANY = 0,
+  APFS_TYPE_SNAP_METADATA = 1,
+  APFS_TYPE_EXTENT = 2,
+  APFS_TYPE_INODE = 3,
+  APFS_TYPE_XATTR = 4,
+  APFS_TYPE_SIBLING_LINK = 5,
+  APFS_TYPE_DSTREAM_ID = 6,
+  APFS_TYPE_CRYPTO_STATE = 7,
+  APFS_TYPE_FILE_EXTENT = 8,
+  APFS_TYPE_DIR_REC = 9,
+  APFS_TYPE_DIR_STATS = 10,
+  APFS_TYPE_SNAP_NAME = 11,
+  APFS_TYPE_SIBLING_MAP = 12,
+  APFS_TYPE_FILE_INFO = 13,
+  APFS_TYPE_MAX_VALID = 13,
+  APFS_TYPE_MAX = 15,
+  APFS_TYPE_INVALID = 15,
+} j_obj_types;
+
+// The kind of a file-system record.
+typedef enum {
+  APFS_KIND_ANY = 0,
+  APFS_KIND_NEW = 1,
+  APFS_KIND_UPDATE = 2,
+  APFS_KIND_DEAD = 3,
+  APFS_KIND_UPDATE_REFCNT = 4,
+  APFS_KIND_INVALID = 255
+} j_obj_kinds;
+
+// The flags used by inodes.
+typedef enum {
+  INODE_IS_APFS_PRIVATE = 0x00000001,
+  INODE_MAINTAIN_DIR_STATS = 0x00000002,
+  INODE_DIR_STATS_ORIGIN = 0x00000004,
+  INODE_PROT_CLASS_EXPLICIT = 0x00000008,
+  INODE_WAS_CLONED = 0x00000010,
+  INODE_FLAG_UNUSED = 0x00000020,
+  INODE_HAS_SECURITY_EA = 0x00000040,
+  INODE_BEING_TRUNCATED = 0x00000080,
+  INODE_HAS_FINDER_INFO = 0x00000100,
+  INODE_IS_SPARSE = 0x00000200,
+  INODE_WAS_EVER_CLONED = 0x00000400,
+  INODE_ACTIVE_FILE_TRIMMED = 0x00000800,
+  INODE_PINNED_TO_MAIN = 0x00001000,
+  INODE_PINNED_TO_TIER2 = 0x00002000,
+  INODE_HAS_RSRC_FORK = 0x00004000,
+  INODE_NO_RSRC_FORK = 0x00008000,
+  INODE_ALLOCATION_SPILLEDOVER = 0x00010000,
+  INODE_FAST_PROMOTE = 0x00020000,
+  INODE_HAS_UNCOMPRESSED_SIZE = 0x00040000,
+  INODE_IS_PURGEABLE = 0x00080000,
+  INODE_WANTS_TO_BE_PURGEABLE = 0x00100000,
+  INODE_IS_SYNC_ROOT = 0x00200000,
+  INODE_SNAPSHOT_COW_EXEMPTION = 0x00400000,
+  INODE_INHERITED_INTERNAL_FLAGS = (INODE_MAINTAIN_DIR_STATS | INODE_SNAPSHOT_COW_EXEMPTION),
+  INODE_CLONED_INTERNAL_FLAGS = (INODE_HAS_RSRC_FORK | INODE_NO_RSRC_FORK | INODE_HAS_FINDER_INFO | INODE_SNAPSHOT_COW_EXEMPTION),
+} j_inode_flags;
+
+#define APFS_INODE_PINNED_MASK (INODE_PINNED_TO_MAIN | INODE_PINNED_TO_TIER2)
+
+// The flags used in an extended attribute record to provide additional information.
+typedef enum {
+  XATTR_DATA_STREAM = 0x00000001,
+  XATTR_DATA_EMBEDDED = 0x00000002,
+  XATTR_FILE_SYSTEM_OWNED = 0x00000004,
+  XATTR_RESERVED_8 = 0x00000008,
+} j_xattr_flags;
+
+// The flags used by directory records.
+typedef enum {
+  DREC_TYPE_MASK = 0x000f,
+  RESERVED_10 = 0x0010
+} dir_rec_flags;
+
+// Inodes whose number is always the same.
+#define INVALID_INO_NUM 0
+#define ROOT_DIR_PARENT 1
+#define ROOT_DIR_INO_NUM 2
+#define PRIV_DIR_INO_NUM 3
+#define SNAP_DIR_INO_NUM 6
+#define PURGEABLE_DIR_INO_NUM 7
+#define MIN_USER_INO_NUM 16
+#define UNIFIED_ID_SPACE_MARK 0x0800000000000000ULL
+
+// Constants used with extended attributes.
+#define XATTR_MAX_EMBEDDED_SIZE 3804
+#define SYMLINK_EA_NAME ”com.apple.fs.symlink”
+#define FIRMLINK_EA_NAME ”com.apple.fs.firmlink”
+#define APFS_COW_EXEMPT_COUNT_NAME ”com.apple.fs.cow - exempt - file - count”
+
+// File-system object constants
+#define OWNING_OBJ_ID_INVALID ~0ULL
+#define OWNING_OBJ_ID_UNKNOWN ~1ULL
+#define JOBJ_MAX_KEY_SIZE 832
+#define JOBJ_MAX_VALUE_SIZE 3808
+#define MIN_DOC_ID 3
+
+// The values used by the mode field of j_inode_val_t to indicate a fileʼs mode.
+#define S_IFMT 0170000
+#define S_IFIFO 0010000
+#define S_IFCHR 0020000
+#define S_IFDIR 0040000
+#define S_IFBLK 0060000
+#define S_IFREG 0100000
+#define S_IFLNK 0120000
+#define S_IFSOCK 0140000
+#define S_IFWHT 0160000
+
+// Values used by the flags field of j_drec_val_t to indicate a directory entryʼs type.
+#define DT_UNKNOWN 0
+#define DT_FIFO 1
+#define DT_CHR 2
+#define DT_DIR 4
+#define DT_BLK 6
+#define DT_REG 8
+#define DT_LNK 10
+#define DT_SOCK 12
+#define DT_WHT 14
+
+// The key half of a physical extent record.
+struct j_phys_ext_key_t {
+  j_key_t hdr;
+} __attribute__((packed));
+
+// The value half of a physical extent record.
+struct j_phys_ext_val_t {
+  uint64_t len_and_kind;
+  uint64_t owning_obj_id;
+  int32_t refcnt;
+} __attribute__((packed));
+
+#define PEXT_LEN_MASK 0x0fffffffffffffffULL
+#define PEXT_KIND_MASK 0xf000000000000000ULL
+#define PEXT_KIND_SHIFT 60
+
+// The key half of a file extent record.
+struct j_file_extent_key_t {
+  j_key_t hdr;
+  uint64_t logical_addr;
+} __attribute__((packed));
+
+// The value half of a file extent record.
+struct j_file_extent_val_t {
+  uint64_t len_and_flags;
+  uint64_t phys_block_num;
+  uint64_t crypto_id;
+} __attribute__((packed));
+
+#define J_FILE_EXTENT_LEN_MASK 0x00ffffffffffffffULL
+#define J_FILE_EXTENT_FLAG_MASK 0xff00000000000000ULL
+#define J_FILE_EXTENT_FLAG_SHIFT 56
+
+// The key half of a directory-information record.
+struct j_dstream_id_key_t {
+  j_key_t hdr;
+} __attribute__((packed));
+
+// The value half of a data stream record.
+struct j_dstream_id_val_t {
+  uint32_t refcnt;
+} __attribute__((packed));
+
+// Information about a data stream.
+struct j_dstream_t {
+  uint64_t size;
+  uint64_t alloced_size;
+  uint64_t default_crypto_id;
+  uint64_t total_bytes_written;
+  uint64_t total_bytes_read;
+} __attribute__((aligned(8), packed));
+
+// A data stream for extended attributes.
+struct j_xattr_dstream_t {
+  uint64_t xattr_obj_id;
+  j_dstream_t dstream;
+};
+
+// A collection of extended attributes.
+struct xf_blob_t {
+  uint16_t xf_num_exts;
+  uint16_t xf_used_data;
+  uint8_t xf_data[];
+};
+
+// An extended fieldʼs metadata.
+struct x_field {
+  uint8_t x_type;
+  uint8_t x_flags;
+  uint16_t x_size;
+};
+
+// Values used by the x_type field of x_field_t to indicate an extended fieldʼs type.
+#define DREC_EXT_TYPE_SIBLING_ID 1
+#define INO_EXT_TYPE_SNAP_XID 1
+#define INO_EXT_TYPE_DELTA_TREE_OID 2
+#define INO_EXT_TYPE_DOCUMENT_ID 3
+#define INO_EXT_TYPE_NAME 4
+#define INO_EXT_TYPE_PREV_FSIZE 5
+#define INO_EXT_TYPE_RESERVED_6 6
+#define INO_EXT_TYPE_FINDER_INFO 7
+#define INO_EXT_TYPE_DSTREAM 8
+#define INO_EXT_TYPE_RESERVED_9 9
+#define INO_EXT_TYPE_DIR_STATS_KEY 10
+#define INO_EXT_TYPE_FS_UUID 11
+#define INO_EXT_TYPE_RESERVED_12 12
+#define INO_EXT_TYPE_SPARSE_BYTES 13
+#define INO_EXT_TYPE_RDEV 14
+#define INO_EXT_TYPE_PURGEABLE_FLAGS 15
+#define INO_EXT_TYPE_ORIG_SYNC_ROOT_ID 16
+
+// The flags used by an extended fieldʼs metadata.
+#define XF_DATA_DEPENDENT 0x0001
+#define XF_DO_NOT_COPY 0x0002
+#define XF_RESERVED_4 0x0004
+#define XF_CHILDREN_INHERIT 0x0008
+#define XF_USER_FIELD 0x0010
+#define XF_SYSTEM_FIELD 0x0020
+#define XF_RESERVED_40 0x0040
+#define XF_RESERVED_80 0x0080
+
+// The key half of a sibling-link record.
+struct j_sibling_key_t {
+  j_key_t hdr;
+  uint64_t sibling_id;
+} __attribute__((packed));
+
+// The value half of a sibling-link record.
+struct j_sibling_val_t {
+  uint64_t parent_id;
+  uint16_t name_len;
+  uint8_t name[0];
+} __attribute__((packed));
+
+// The key half of a sibling-map record.
+struct j_sibling_map_key_t {
+  j_key_t hdr;
+} __attribute__((packed));
+
+// The value half of a sibling-map record.
+struct j_sibling_map_val_t {
+  uint64_t file_id;
+} __attribute__((packed));
+
+// The key half of a record containing metadata about a snapshot.
+struct j_snap_metadata_key_t {
+  j_key_t hdr;
+} __attribute__((packed));
+
+// The value half of a record containing metadata about a snapshot.
+struct j_snap_metadata_val_t {
+  oid_t extentref_tree_oid;
+  oid_t sblock_oid;
+  uint64_t create_time;
+  uint64_t change_time;
+  uint64_t inum;
+  uint32_t extentref_tree_type;
+  uint32_t flags;
+  uint16_t name_len;
+  uint8_t name[0];
+} __attribute__((packed));
+
+// The key half of a snapshot name record.
+struct j_snap_name_key_t {
+  j_key_t hdr;
+  uint16_t name_len;
+  uint8_t name[0];
+} __attribute__((packed));
+
+struct j_snap_name_val_t {
+  xid_t snap_xid;
+} __attribute__((packed));
+
+typedef enum {
+  SNAP_META_PENDING_DATALESS = 0x00000001,
+  SNAP_META_MERGE_IN_PROGRESS = 0x00000002,
+} snap_meta_flags;
+
+struct snap_meta_ext_t {
+  uint32_t sme_version;
+  uint32_t sme_flags;
+  xid_t sme_snap_xid;
+  uuid_t sme_uuid;
+  uint64_t sme_token;
+} __attribute__((packed));
+
+// Additional metadata about snapshots.
+struct snap_meta_ext_obj_phys_t {
+  obj_phys_t smeop_o;
+  snap_meta_ext_t smeop_sme;
+};
+
+#define BTOFF_INVALID 0xffff
+
+// A location within a B-tree node.
+struct nloc_t {
+  uint16_t off;
+  uint16_t len;
+};
+
+// A B-tree node.
+struct btree_node_phys_t {
+  obj_phys_t btn_o;
+  uint16_t btn_flags;
+  uint16_t btn_level;
+  uint32_t btn_nkeys;
+  nloc_t btn_table_space;
+  nloc_t btn_free_space;
+  nloc_t btn_key_free_list;
+  nloc_t btn_val_free_list;
+  uint64_t btn_data[];
+};
+
+// Static information about a B-tree.
+struct btree_info_fixed_t {
+  uint32_t bt_flags;
+  uint32_t bt_node_size;
+  uint32_t bt_key_size;
+  uint32_t bt_val_size;
+};
+
+// Information about a B-tree.
+struct btree_info_t {
+  btree_info_fixed_t bt_fixed;
+  uint32_t bt_longest_key;
+  uint32_t bt_longest_val;
+  uint64_t bt_key_count;
+  uint64_t bt_node_count;
+};
+
+#define BTREE_NODE_HASH_SIZE_MAX 64
+
+// The value used by hashed B-trees for nonleaf nodes.
+struct btn_index_node_val_t {
+  oid_t binv_child_oid;
+  uint8_t binv_child_hash[BTREE_NODE_HASH_SIZE_MAX];
+};
+
+// The location, within a B-tree node, of a key and value.
+struct kvloc_t {
+  nloc_t k;
+  nloc_t v;
+};
+
+// The location, within a B-tree node, of a fixed-size key and value.
+struct kvoff_t {
+  uint16_t k;
+  uint16_t v;
+};
+
+// The flags used to describe configuration options for a B-tree.
+#define BTREE_UINT64_KEYS 0x00000001
+#define BTREE_SEQUENTIAL_INSERT 0x00000002
+#define BTREE_ALLOW_GHOSTS 0x00000004
+#define BTREE_EPHEMERAL 0x00000008
+#define BTREE_PHYSICAL 0x00000010
+#define BTREE_NONPERSISTENT 0x00000020
+#define BTREE_KV_NONALIGNED 0x00000040
+#define BTREE_HASHED 0x00000080
+#define BTREE_NOHEADER 0x00000100
+
+// Constants used in managing the size of the table of contents in a B-tree node.
+#define BTREE_TOC_ENTRY_INCREMENT 8
+#define BTREE_TOC_ENTRY_MAX_UNUSED (2 * BTREE_TOC_ENTRY_INCREMENT)
+
+// The flags used with a B-tree node.
+#define BTNODE_ROOT 0x0001
+#define BTNODE_LEAF 0x0002
+
+#define BTNODE_FIXED_KV_SIZE 0x0004
+#define BTNODE_HASHED 0x0008
+#define BTNODE_NOHEADER 0x0010
+
+#define BTNODE_CHECK_KOFF_INVAL 0x8000
+
+// Constants used to determine the size of a B-tree node.
+#define BTREE_NODE_SIZE_DEFAULT 4096
+#define BTREE_NODE_MIN_ENTRY_COUNT 4
