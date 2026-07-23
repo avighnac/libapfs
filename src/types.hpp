@@ -834,13 +834,21 @@ struct nloc_t {
 // A B-tree node.
 struct btree_node_phys_t {
   obj_phys_t btn_o;
+  // The B-tree nodeʼs flags.
   uint16_t btn_flags;
+  // The number of child levels below this node.
   uint16_t btn_level;
+  // The number of keys stored in this node.
   uint32_t btn_nkeys;
+  // The location of the table of contents.
   nloc_t btn_table_space;
+  // The location of the shared free space for keys and values.
   nloc_t btn_free_space;
+  // A linked list that tracks free key space.
   nloc_t btn_key_free_list;
+  // A linked list that tracks free value space.
   nloc_t btn_val_free_list;
+  // The nodeʼs storage area.
   uint64_t btn_data[];
 };
 

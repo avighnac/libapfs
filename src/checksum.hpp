@@ -2,11 +2,12 @@
 #include <cstddef>
 #include <climits>
 #include <cstring>
+#include <stdexcept>
 
 // Calculates and returns the Fletcher-64 of a buffer of data
 uint64_t calculate_fletcher64_checksum(const uint8_t *buffer, size_t size, uint64_t initial_value = 0) {
 	if (buffer == NULL)
-		throw "invalid buffer";
+		throw std::runtime_error("invalid buffer");
 
   uint64_t lower = initial_value & 0xffffffffULL;
   uint64_t upper = (initial_value >> 32) & 0xffffffffULL;
@@ -28,9 +29,9 @@ uint64_t calculate_fletcher64_checksum(const uint8_t *buffer, size_t size, uint6
 }
 
 // Returns true if the object checksum is correct
-bool verify_object_checksum(const uint8_t *object, size_t block_size) {
+bool verify_object_checksum(void *object, size_t block_size) {
   // obj_phys_t.o_cksum is the first 8 bytes so we exclude it from its own checksum
   uint64_t checksum;
   std::memcpy(&checksum, object, 8);
-  return checksum == calculate_fletcher64_checksum(object + 8, block_size - 8);
+  return checksum == calculate_fletcher64_checksum((const uint8_t *)object + 8, block_size - 8);
 }
