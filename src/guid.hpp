@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 
 // From https://uefi.org/specs/UEFI/2.10/05_GUID_Partition_Table_Format.html
