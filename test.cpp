@@ -129,103 +129,308 @@ public:
     return data;
   }
 
-  // Read multiple blocks and return their raw bytes
-  std::string read_blocks(uint64_t block_num, uint64_t num_blocks = 1) {
-    fseek(f, block_num * BLOCK_SIZE, SEEK_SET);
-    std::string mem;
-    mem.reserve(BLOCK_SIZE * num_blocks);
-    for (int i = 0; i < num_blocks; ++i) {
-      mem.append(read_block(block_num + i));
-    }
-    return mem;
-  }
-
-  // Read an object without any checksum checks
-  template <typename T>
-  T read_object_no_cksum(uint64_t block_num, uint64_t num_blocks = 1) {
-    std::string mem = read_blocks(block_num, num_blocks);
-    return *(T *)mem.data();
-  }
-
-  // Read an APFS object (that begins with `obj_phys_t`) from a given (range of) blocks,
+  // Read an APFS object (that begins with `obj_phys_t`) from a given block,
   // verify its checksum, and return it
   template <typename T>
-  T read_object(uint64_t block_num, uint64_t num_blocks = 1) {
-    std::string mem = read_blocks(block_num, num_blocks);
+  T read_object(uint64_t block_num) {
+    std::string mem = read_block(block_num);
     if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
       throw std::runtime_error("checksum verification failed while reading object");
     }
     return *(T *)mem.data();
   }
 
-  template <typename T>
-  T read_struct(uint64_t addr) {
-    uint64_t block_num = addr / BLOCK_SIZE;
-    addr %= BLOCK_SIZE;
-    std::string data;
-    while (data.length() < addr + sizeof(T)) {
-      data.append(read_block(block_num++));
+  template <>
+  checkpoint_map_phys_t read_object(uint64_t block_num) {
+    std::string mem = read_block(block_num);
+    if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
+      throw std::runtime_error("checksum verification failed while reading object");
     }
-    return *(T *)((uint8_t *)data.data() + addr);
+    size_t off = sizeof(checkpoint_map_phys_t) - sizeof(std::vector<checkpoint_mapping_t>);
+    checkpoint_map_phys_t obj;
+    memcpy((void *)&obj, mem.data(), off);
+    obj.cpm_map.resize(obj.cpm_count);
+    memcpy(obj.cpm_map.data(), mem.data() + off, obj.cpm_count * sizeof(checkpoint_mapping_t));
+    return obj;
+  }
+
+  template <>
+  btree_node_phys_t read_object(uint64_t block_num) {
+    std::string mem = read_block(block_num);
+    if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
+      throw std::runtime_error("checksum verification failed while reading object");
+    }
+    size_t off = sizeof(btree_node_phys_t) - sizeof(std::vector<uint8_t>);
+    btree_node_phys_t obj;
+    memcpy((void *)&obj, mem.data(), off);
+    obj.btn_data.resize((BTREE_NODE_SIZE_DEFAULT - off) / sizeof(uint8_t));
+    memcpy(obj.btn_data.data(), mem.data() + off, BTREE_NODE_SIZE_DEFAULT - off);
+    return obj;
   }
 };
+
+// An entry in the checkpoint descriptor area.
+struct container_t {
+  std::vector<checkpoint_map_phys_t> checkpoint_maps;
+  nx_superblock_t block;
+};
+
+// Stores the keys and values for an object map btree node.
+struct omap_btree_node {
+  std::vector<omap_key_t> keys;
+  std::vector<omap_val_t> vals;
+};
+
+// Parses an (omap) `btree_node_phys_t`'s weird layout and returns just the keys and values, ordered
+omap_btree_node parse_omap_btree_node(const btree_node_phys_t &node) {
+  // This function is only for `omap_btree_node`s
+  assert(node.btn_o.o_subtype == OBJECT_TYPE_OMAP);
+  // For an `omap_btree_node`, key-value sizes are fixed.
+  assert(node.btn_flags & BTNODE_FIXED_KV_SIZE);
+
+  uint8_t *table_loc = (uint8_t *)node.btn_data.data() + node.btn_table_space.off;
+  uint8_t *keys_loc = table_loc + node.btn_table_space.len;
+  uint8_t *vals_loc = (uint8_t *)node.btn_data.data() + (BTREE_NODE_SIZE_DEFAULT - (sizeof(btree_node_phys_t) - sizeof(std::string)));
+  // We are a root node
+  if ((node.btn_o.o_type & OBJECT_TYPE_MASK) == OBJECT_TYPE_BTREE) {
+    vals_loc -= sizeof(btree_info_t);
+  }
+
+  // There are `node.btn_nkeys` key-value pairs
+  omap_btree_node parsed;
+  parsed.keys.resize(node.btn_nkeys);
+  parsed.vals.resize(node.btn_nkeys);
+  for (int i = 0; i < node.btn_nkeys; ++i) {
+    kvoff_t off = *(kvoff_t *)(table_loc + i * sizeof(kvoff_t));
+    parsed.keys[i] = *(omap_key_t *)(keys_loc + off.k);
+    parsed.vals[i] = *(omap_val_t *)(vals_loc - off.v);
+  }
+
+  return parsed;
+}
+
+void print_omap_node(const omap_btree_node &b) {
+  std::cout << "keys\n";
+  for (auto k : b.keys)
+    std::cout << k.ok_oid << ' ' << k.ok_xid << std::endl;
+  std::cout << "vals\n";
+  for (auto k : b.vals)
+    std::cout << k.ov_size << ' ' << k.ov_paddr << std::endl;
+}
+
+// Stores the keys and values for a filesystem btree node.
+struct j_btree_node {
+  std::vector<j_key_t> keys;
+  std::vector<j_val_t> vals;
+};
+
+// A j_key_t can take up multiple shapes
+// This function takes in a base address and an `nloc_t` (obtained from a `kvloc_t` that represents an offset)
+// Parses and returns the j_key_t
+j_key_t read_j_key_t(uint8_t *base, nloc_t loc) {
+  char *addr = (char *)base + loc.off;
+  uint64_t key_type = ((*(j_key_t *)addr).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
+  switch (key_type) {
+  case APFS_TYPE_INODE:
+  case APFS_TYPE_DIR_STATS:
+  case APFS_TYPE_EXTENT:
+  case APFS_TYPE_DSTREAM_ID:
+  case APFS_TYPE_SIBLING_MAP:
+  case APFS_TYPE_SNAP_METADATA: {
+    // All of these cases are literally just typewraps around a base `j_key_t`
+    return *(j_key_t *)addr;
+  }
+  case APFS_TYPE_DIR_REC: {
+    j_drec_hashed_key_t key;
+    size_t beg = sizeof(j_drec_hashed_key_t) - sizeof(std::string);
+    memcpy((void *)&key, addr, beg);
+    size_t len = key.name_len_and_hash & J_DREC_LEN_MASK;
+    assert(loc.len - beg == len);
+    key.name.append(addr + beg, len);
+    return key;
+  }
+  case APFS_TYPE_XATTR:
+  case APFS_TYPE_SNAP_NAME: {
+    // All cases are equivalent!
+    assert(sizeof(j_xattr_key_t) == sizeof(j_snap_name_key_t));
+    j_xattr_key_t key;
+    size_t beg = sizeof(j_xattr_key_t) - sizeof(std::string);
+    memcpy((void *)&key, addr, beg);
+    assert(loc.len - beg == key.name_len);
+    key.name.append(addr + beg, key.name_len);
+    return key;
+  }
+  case APFS_TYPE_FILE_EXTENT:
+  case APFS_TYPE_SIBLING_LINK: {
+    assert(sizeof(j_file_extent_key_t) == sizeof(j_sibling_key_t));
+    return *(j_file_extent_key_t *)addr;
+  }
+  default: {
+    throw std::runtime_error("unknown type in read_j_key_t");
+  }
+  }
+}
+
+// A j_val_t can take up multiple shapes
+// This function takes in a base address and an `nloc_t` (obtained from a `kvloc_t` that represents an offset)
+// Parses and returns the j_val_t
+j_val_t read_j_val_t(uint8_t *base, nloc_t loc, uint64_t key_type) {
+  // For values, in a btree node, the base address is (near or at) the end of the block, and we read from behind.
+  char *addr = (char *)base - loc.off;
+  switch (key_type) {
+  case APFS_TYPE_INODE: {
+    j_inode_val_t val;
+    size_t beg = sizeof(j_inode_val_t) - sizeof(std::string);
+    memcpy((void *)&val, addr, beg);
+    val.xfields.append(addr + beg, loc.len - beg);
+    return val;
+  }
+  case APFS_TYPE_DIR_STATS: {
+    return *(j_dir_stats_val_t *)addr;
+  }
+  case APFS_TYPE_EXTENT: {
+    return *(j_phys_ext_val_t *)addr;
+  }
+  case APFS_TYPE_FILE_EXTENT: {
+    return *(j_file_extent_val_t *)addr;
+  }
+  case APFS_TYPE_DSTREAM_ID: {
+    return *(j_dstream_id_val_t *)addr;
+  }
+  case APFS_TYPE_SIBLING_MAP: {
+    return *(j_sibling_map_val_t *)addr;
+  }
+  case APFS_TYPE_SNAP_METADATA: {
+    j_snap_metadata_val_t val;
+    size_t beg = sizeof(j_snap_metadata_val_t) - sizeof(std::string);
+    memcpy((void *)&val, addr, beg);
+    val.name.append(addr + beg, val.name_len);
+    return val;
+  }
+  case APFS_TYPE_DIR_REC: {
+    j_drec_val_t val;
+    size_t beg = sizeof(j_drec_val_t) - sizeof(std::string);
+    memcpy((void *)&val, addr, beg);
+    val.xfields.append(addr + beg, loc.len - beg);
+    return val;
+  }
+  case APFS_TYPE_XATTR: {
+    j_xattr_val_t val;
+    size_t beg = sizeof(j_xattr_val_t) - sizeof(std::string);
+    memcpy((void *)&val, addr, beg);
+    val.xdata.append(addr + beg, val.xdata_len);
+    return val;
+  }
+  case APFS_TYPE_SNAP_NAME: {
+    return *(j_snap_name_val_t *)addr;
+  }
+  case APFS_TYPE_SIBLING_LINK: {
+    j_sibling_val_t val;
+    size_t beg = sizeof(j_sibling_val_t) - sizeof(std::string);
+    memcpy((void *)&val, addr, beg);
+    val.name.append(addr + beg, val.name_len);
+    return val;
+  }
+  default: {
+    throw std::runtime_error("unknown type in read_j_val_t");
+  }
+  }
+}
+
+// // Parses a (filesystem) `btree_node_phys_t`'s weird layout and returns just the keys and values, ordered
+j_btree_node parse_j_btree_node(const btree_node_phys_t &node) {
+  // This function only works for filesystem btree nodes.
+  assert(node.btn_o.o_subtype == OBJECT_TYPE_FSTREE);
+  // We expect variable lengths...
+  assert(!(node.btn_flags & BTNODE_FIXED_KV_SIZE));
+
+  uint8_t *table_loc = (uint8_t *)node.btn_data.data() + node.btn_table_space.off;
+  uint8_t *keys_loc = table_loc + node.btn_table_space.len;
+  uint8_t *vals_loc = (uint8_t *)node.btn_data.data() + (BTREE_NODE_SIZE_DEFAULT - (sizeof(btree_node_phys_t) - sizeof(std::string)));
+  // We are a root node
+  if ((node.btn_o.o_type & OBJECT_TYPE_MASK) == OBJECT_TYPE_BTREE) {
+    vals_loc -= sizeof(btree_info_t);
+  }
+
+  // There are `node.btn_nkeys` key-value pairs
+  j_btree_node parsed;
+  for (int i = 0; i < node.btn_nkeys; ++i) {
+    kvloc_t loc = *(kvloc_t *)(table_loc + i * sizeof(kvloc_t));
+    parsed.keys[i] = read_j_key_t(keys_loc, loc.k);
+    parsed.vals[i] = read_j_val_t(vals_loc, loc.v, (parsed.keys[i].obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT);
+  }
+
+  return parsed;
+}
 
 int main() {
   // block 846
   BlockReader reader("/dev/rdisk6");
 
+  // To mount an APFS partition, first, we read the superblock at block 0
   nx_superblock_t superblock = reader.read_object<nx_superblock_t>(0);
   assert(superblock.nx_magic == NX_MAGIC);
 
+  // Now, read the entries in the checkpoint descriptor area
   std::cout << "number of checkpoint descriptor things: " << superblock.nx_xp_desc_blocks << '\n';
 
+  // Now read each container superblock
+  std::vector<container_t> container_superblocks;
   for (int i = 0; i < superblock.nx_xp_desc_blocks; ++i) {
-    obj_phys_t hdr = reader.read_object<obj_phys_t>(superblock.nx_xp_desc_base + i);
-    if ((hdr.o_type & OBJECT_TYPE_MASK) == OBJECT_TYPE_NX_SUPERBLOCK) {
-      nx_superblock_t block = reader.read_object<nx_superblock_t>(superblock.nx_xp_desc_base + i);
-      omap_phys_t obj_map = reader.read_object<omap_phys_t>(block.nx_omap_oid);
-      // std::cout << block.nx_omap_oid << std::endl;
-      // we need to find block.nx_fs_oid[0] (which is 1026) in the b-tree
+    std::string data = reader.read_block(superblock.nx_xp_desc_base + i);
+    // Filter by superblocks, skipping checkpoint mappings
+    if (((*(obj_phys_t *)data.data()).o_type & OBJECT_TYPE_MASK) == OBJECT_TYPE_NX_SUPERBLOCK) {
+      // Read the superblock in the checkpoint area
+      container_t container;
+      container.block = *(nx_superblock_t *)data.data();
 
-      btree_node_phys_t btree_root = reader.read_object<btree_node_phys_t>(obj_map.om_tree_oid);
-      assert(btree_root.btn_level == 0);
-
-      if (btree_root.btn_flags & BTNODE_FIXED_KV_SIZE) {
-        std::vector<kvoff_t> key_values(btree_root.btn_nkeys);
-        // memcpy(key_values.data(), (uint8_t *)btree_root.btn_data + btree_root.btn_table_space.off, btree_root.btn_nkeys * sizeof(kvoff_t));
-        // void *key_loc = (uint8_t *)btree_root.btn_data + btree_root.btn_table_space.off + btree_root.btn_table_space.len;
-        // for (auto &[k, v] : key_values) {
-        //   omap_key_t key = reader.read_struct<omap_key_t>((uint64_t)((uint8_t *)key_loc + k));
-        //   // omap_key_t key = *(omap_key_t *)((uint8_t *)key_loc + k);
-        //   // // omap_val_t value = *(omap_val_t *)((uint8_t *)obj_map.om_tree_oid + v);
-        //   std::cout << "oid: " << key.ok_oid << ", xid: " << key.ok_xid << '\n';
-        // }
-        std::string raw = reader.read_block(obj_map.om_tree_oid);
-        char *toc_addr = raw.data() + sizeof(btree_node_phys_t) - sizeof(uint64_t *);
-        memcpy(key_values.data(), toc_addr + btree_root.btn_table_space.off, btree_root.btn_nkeys * sizeof(kvoff_t));
-        char *key_addr = toc_addr + btree_root.btn_table_space.off + btree_root.btn_table_space.len;
-        // char *val_addr = raw.data() + btree_root.btn_free_space.off + btree_root.btn_free_space.len + btree_root.btn_nkeys * sizeof(omap_val_t);
-        char *val_addr = raw.data() + 4096 - sizeof(btree_info_t);
-        for (auto &[k, v] : key_values) {
-          omap_key_t key = *(omap_key_t *)(key_addr + k);
-          omap_val_t val = *(omap_val_t *)(val_addr - v);
-          std::cout << "oid: " << key.ok_oid << ", xid: " << key.ok_xid << '\n';
-          std::cout << "val size: " << val.ov_size << '\n';
-          std::cout << "flag: " << std::hex << val.ov_flags << std::dec << '\n';
-          std::cout << "paddr: " << val.ov_paddr << '\n';
-        }
-      } else {
-        std::cout << "kvloc_t\n";
+      // Only process if the checksum of the superblock is valid.
+      if (!verify_object_checksum(data.data(), superblock.nx_block_size)) {
+        continue;
       }
+
+      // Store the checkpoint maps from the checkpoint area ring buffer
+      // (i.e. everything in the area that is NOT the superblock)
+      int len = container.block.nx_xp_desc_len - 1;
+      for (int j = 1; j <= len; ++j) {
+        int idx = (i - j + superblock.nx_xp_desc_blocks) % superblock.nx_xp_desc_blocks;
+        container.checkpoint_maps.push_back(reader.read_object<checkpoint_map_phys_t>(superblock.nx_xp_desc_base + idx));
+      }
+
+      container_superblocks.push_back(container);
     }
   }
 
-  // checkpoint_map_phys_t x = reader.read_object<checkpoint_map_phys_t>(superblock.nx_xp_desc_base);
-  // assert((x.cpm_o.o_type & OBJECT_TYPE_MASK) == OBJECT_TYPE_CHECKPOINT_MAP);
+  // Pick the one with the maximum transaction identifier
 
-  // for (int i = 0; i < x.cpm_count; ++i) {
-  //   checkpoint_mapping_t mapping = x.cpm_map[i];
-  //   std::cout << "size: " << mapping.cpm_size << '\n';
-  //   std::cout << "paddr: " << mapping.cpm_paddr << '\n';
-  // }
+  // hopefully this is valid because we are not checking the malformation of ephemeral objects
+  // in the `checkpoint_phys_t` associated with the superblock
+  container_t container = *max_element(container_superblocks.begin(), container_superblocks.end(), [&](const container_t &a, const container_t &b) {
+    return a.block.nx_o.o_xid > b.block.nx_o.o_xid;
+  });
+
+  // Load object map
+  omap_phys_t omap = reader.read_object<omap_phys_t>(container.block.nx_omap_oid);
+  // This should be true...
+  assert((omap.om_tree_type & OBJ_STORAGETYPE_MASK) == OBJ_PHYSICAL);
+
+  // We're just assuming the one node is the root/leaf node.
+  btree_node_phys_t btree_node = reader.read_object<btree_node_phys_t>(omap.om_tree_oid);
+  omap_btree_node kvs = parse_omap_btree_node(btree_node);
+
+  paddr_t apfs_block_addr = kvs.vals[0].ov_paddr;
+  // Load the apfs superblock
+  apfs_superblock_t apfs_spblk = reader.read_object<apfs_superblock_t>(apfs_block_addr);
+  omap_phys_t apfs_omap = reader.read_object<omap_phys_t>(apfs_spblk.apfs_omap_oid);
+  btree_node_phys_t apfs_btree = reader.read_object<btree_node_phys_t>(apfs_omap.om_tree_oid);
+  omap_btree_node apfs_kvs = parse_omap_btree_node(apfs_btree);
+  paddr_t apfs_root_tree_addr = apfs_kvs.vals[0].ov_paddr;
+
+  // Filesystem tree
+  btree_node_phys_t fs_tree = reader.read_object<btree_node_phys_t>(apfs_root_tree_addr);
+  j_btree_node j_node = parse_j_btree_node(fs_tree);
+  std::cout << "keys\n";
+  for (auto k : j_node.keys) {
+    std::cout << std::hex << k.obj_id_and_type << std::endl;
+  }
 }

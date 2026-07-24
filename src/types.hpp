@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <vector>
 
 // Mostly from https://developer.apple.com/support/downloads/Apple-File-System-Reference.pdf
 
@@ -220,7 +221,7 @@ struct checkpoint_map_phys_t {
   // The number of checkpoint mappings in the array.
   uint32_t cpm_count;
   // The array of checkpoint mappings.
-  checkpoint_mapping_t cpm_map[];
+  std::vector<checkpoint_mapping_t> cpm_map;
 };
 
 #define CHECKPOINT_MAP_LAST 0x00000001
@@ -237,15 +238,25 @@ struct evict_mapping_val_t {
 
 // An object map.
 struct omap_phys_t {
+  // The objectʼs header.
   obj_phys_t om_o;
+  // The object mapʼs flags.
   uint32_t om_flags;
+  // The number of snapshots that this object map has.
   uint32_t om_snap_count;
+  // The type of tree being used for object mappings.
   uint32_t om_tree_type;
+  // The type of tree being used for snapshots.
   uint32_t om_snapshot_tree_type;
+  // The object identifier of the tree being used for object mappings.
   oid_t om_tree_oid;
+  // The virtual object identifier of the tree being used to hold snapshot information.
   oid_t om_snapshot_tree_oid;
+  // The transaction identifier of the most recent snapshot thatʼs stored in this object map.
   xid_t om_most_recent_snap;
+  // The smallest transaction identifier for an in-progress revert.
   xid_t om_pending_revert_min;
+  // The largest transaction identifier for an in-progress revert.
   xid_t om_pending_revert_max;
 };
 
@@ -253,6 +264,12 @@ struct omap_phys_t {
 struct omap_key_t {
   oid_t ok_oid;
   xid_t ok_xid;
+  bool operator<(const omap_key_t &r) const {
+    if (ok_oid != r.ok_oid) {
+      return ok_oid < r.ok_oid;
+    }
+    return ok_xid < r.ok_xid;
+  }
 };
 
 // A value in the object map.
@@ -433,28 +450,36 @@ struct apfs_superblock_t {
 #define APFS_INCOMPAT_RESERVED_40 0x00000040LL
 #define APFS_SUPPORTED_INCOMPAT_MASK (APFS_INCOMPAT_CASE_INSENSITIVE | APFS_INCOMPAT_DATALESS_SNAPS | APFS_INCOMPAT_ENC_ROLLED | APFS_INCOMPAT_NORMALIZATION_INSENSITIVE | APFS_INCOMPAT_INCOMPLETE_RESTORE | APFS_INCOMPAT_SEALED_VOLUME | APFS_INCOMPAT_RESERVED_40)
 
-// A header used at the beginning of all file-system keys.
-struct j_key_t {
-  uint64_t obj_id_and_type;
-} __attribute__((packed));
-
 #define OBJ_ID_MASK 0x0fffffffffffffffULL
 #define OBJ_TYPE_MASK 0xf000000000000000ULL
 #define OBJ_TYPE_SHIFT 60
 
 #define SYSTEM_OBJ_ID_MARK 0x0fffffff00000000ULL
 
+// A header used at the beginning of all file-system keys.
+struct j_key_t {
+  uint64_t obj_id_and_type;
+  bool operator<(const j_key_t &r) const {
+    if ((obj_id_and_type & OBJ_ID_MASK) != (r.obj_id_and_type & OBJ_ID_MASK)) {
+      return (obj_id_and_type & OBJ_ID_MASK) < (r.obj_id_and_type & OBJ_ID_MASK);
+    }
+    return ((obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT) < ((r.obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT);
+  }
+} __attribute__((packed));
+
 // The key half of a directory-information record.
-struct j_inode_key_t {
-  j_key_t hdr;
+struct j_inode_key_t : j_key_t {
 } __attribute__((packed));
 
 typedef uint32_t uid_t;
 typedef uint32_t gid_t;
 typedef uint16_t mode_t;
 
+// This is a base class for convenience
+struct j_val_t {};
+
 // The value half of an inode record.
-struct j_inode_val_t {
+struct j_inode_val_t : j_val_t {
   uint64_t parent_id;
   uint64_t private_id;
   uint64_t create_time;
@@ -474,21 +499,19 @@ struct j_inode_val_t {
   mode_t mode;
   uint16_t pad1;
   uint64_t uncompressed_size;
-  uint8_t xfields[];
+  std::string xfields;
 } __attribute__((packed));
 
 // The key half of a directory entry record.
-struct j_drec_key_t {
-  j_key_t hdr;
+struct j_drec_key_t : j_key_t {
   uint16_t name_len;
-  uint8_t name[0];
+  std::string name;
 } __attribute__((packed));
 
 // The key half of a directory entry record, including a precomputed hash of its name.
-struct j_drec_hashed_key_t {
-  j_key_t hdr;
+struct j_drec_hashed_key_t : j_key_t {
   uint32_t name_len_and_hash;
-  uint8_t name[0];
+  std::string name;
 } __attribute__((packed));
 
 #define J_DREC_LEN_MASK 0x000003ff
@@ -496,20 +519,19 @@ struct j_drec_hashed_key_t {
 #define J_DREC_HASH_SHIFT 10
 
 // The value half of a directory entry record.
-struct j_drec_val_t {
+struct j_drec_val_t : j_val_t {
   uint64_t file_id;
   uint64_t date_added;
   uint16_t flags;
-  uint8_t xfields[];
+  std::string xfields;
 } __attribute__((packed));
 
 // The key half of a directory-information record.
-struct j_dir_stats_key_t {
-  j_key_t hdr;
+struct j_dir_stats_key_t : j_key_t {
 } __attribute__((packed));
 
 // The value half of a directory-information record.
-struct j_dir_stats_val_t {
+struct j_dir_stats_val_t : j_val_t {
   uint64_t num_children;
   uint64_t total_size;
   uint64_t chained_key;
@@ -517,17 +539,16 @@ struct j_dir_stats_val_t {
 } __attribute__((packed));
 
 // The key half of an extended attribute record.
-struct j_xattr_key_t {
-  j_key_t hdr;
+struct j_xattr_key_t : j_key_t {
   uint16_t name_len;
-  uint8_t name[0];
+  std::string name;
 } __attribute__((packed));
 
 // The value half of an extended attribute record.
-struct j_xattr_val_t {
+struct j_xattr_val_t : j_val_t {
   uint16_t flags;
   uint16_t xdata_len;
-  uint8_t xdata[0];
+  std::string xdata;
 } __attribute__((packed));
 
 // The type of a file-system record.
@@ -652,12 +673,11 @@ typedef enum {
 #define DT_WHT 14
 
 // The key half of a physical extent record.
-struct j_phys_ext_key_t {
-  j_key_t hdr;
+struct j_phys_ext_key_t : j_key_t {
 } __attribute__((packed));
 
 // The value half of a physical extent record.
-struct j_phys_ext_val_t {
+struct j_phys_ext_val_t : j_val_t {
   uint64_t len_and_kind;
   uint64_t owning_obj_id;
   int32_t refcnt;
@@ -668,13 +688,12 @@ struct j_phys_ext_val_t {
 #define PEXT_KIND_SHIFT 60
 
 // The key half of a file extent record.
-struct j_file_extent_key_t {
-  j_key_t hdr;
+struct j_file_extent_key_t : j_key_t {
   uint64_t logical_addr;
 } __attribute__((packed));
 
 // The value half of a file extent record.
-struct j_file_extent_val_t {
+struct j_file_extent_val_t : j_val_t {
   uint64_t len_and_flags;
   uint64_t phys_block_num;
   uint64_t crypto_id;
@@ -685,12 +704,11 @@ struct j_file_extent_val_t {
 #define J_FILE_EXTENT_FLAG_SHIFT 56
 
 // The key half of a directory-information record.
-struct j_dstream_id_key_t {
-  j_key_t hdr;
+struct j_dstream_id_key_t : j_key_t {
 } __attribute__((packed));
 
 // The value half of a data stream record.
-struct j_dstream_id_val_t {
+struct j_dstream_id_val_t : j_val_t {
   uint32_t refcnt;
 } __attribute__((packed));
 
@@ -753,35 +771,32 @@ struct x_field {
 #define XF_RESERVED_80 0x0080
 
 // The key half of a sibling-link record.
-struct j_sibling_key_t {
-  j_key_t hdr;
+struct j_sibling_key_t : j_key_t {
   uint64_t sibling_id;
 } __attribute__((packed));
 
 // The value half of a sibling-link record.
-struct j_sibling_val_t {
+struct j_sibling_val_t : j_val_t {
   uint64_t parent_id;
   uint16_t name_len;
-  uint8_t name[0];
+  std::string name;
 } __attribute__((packed));
 
 // The key half of a sibling-map record.
-struct j_sibling_map_key_t {
-  j_key_t hdr;
+struct j_sibling_map_key_t : j_key_t {
 } __attribute__((packed));
 
 // The value half of a sibling-map record.
-struct j_sibling_map_val_t {
+struct j_sibling_map_val_t : j_val_t {
   uint64_t file_id;
 } __attribute__((packed));
 
 // The key half of a record containing metadata about a snapshot.
-struct j_snap_metadata_key_t {
-  j_key_t hdr;
+struct j_snap_metadata_key_t : j_key_t {
 } __attribute__((packed));
 
 // The value half of a record containing metadata about a snapshot.
-struct j_snap_metadata_val_t {
+struct j_snap_metadata_val_t : j_val_t {
   oid_t extentref_tree_oid;
   oid_t sblock_oid;
   uint64_t create_time;
@@ -790,17 +805,16 @@ struct j_snap_metadata_val_t {
   uint32_t extentref_tree_type;
   uint32_t flags;
   uint16_t name_len;
-  uint8_t name[0];
+  std::string name;
 } __attribute__((packed));
 
 // The key half of a snapshot name record.
-struct j_snap_name_key_t {
-  j_key_t hdr;
+struct j_snap_name_key_t : j_key_t {
   uint16_t name_len;
-  uint8_t name[0];
+  std::string name;
 } __attribute__((packed));
 
-struct j_snap_name_val_t {
+struct j_snap_name_val_t : j_val_t {
   xid_t snap_xid;
 } __attribute__((packed));
 
@@ -840,7 +854,7 @@ struct btree_node_phys_t {
   uint16_t btn_level;
   // The number of keys stored in this node.
   uint32_t btn_nkeys;
-  // The location of the table of contents.
+  // The location of the table of contents, starting from `btn_data`.
   nloc_t btn_table_space;
   // The location of the shared free space for keys and values.
   nloc_t btn_free_space;
@@ -849,7 +863,7 @@ struct btree_node_phys_t {
   // A linked list that tracks free value space.
   nloc_t btn_val_free_list;
   // The nodeʼs storage area.
-  uint64_t btn_data[];
+  std::string btn_data;
 };
 
 // Static information about a B-tree.
