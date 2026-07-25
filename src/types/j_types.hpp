@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "types.hpp"
-
 struct apfs_modified_by_t {
   uint8_t id[APFS_MODIFIED_NAMELEN];
   uint64_t timestamp;
@@ -76,12 +74,6 @@ struct apfs_superblock_t {
 // A header used at the beginning of all file-system keys.
 struct j_key_t {
   uint64_t obj_id_and_type;
-  bool operator<(const j_key_t &r) const {
-    if ((obj_id_and_type & OBJ_ID_MASK) != (r.obj_id_and_type & OBJ_ID_MASK)) {
-      return (obj_id_and_type & OBJ_ID_MASK) < (r.obj_id_and_type & OBJ_ID_MASK);
-    }
-    return ((obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT) < ((r.obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT);
-  }
 } __attribute__((packed));
 
 // The key half of a directory-information record.
@@ -116,10 +108,10 @@ struct j_inode_val_t : j_val_t {
 } __attribute__((packed));
 
 // The key half of a directory entry record.
-struct j_drec_key_t : j_key_t {
-  uint16_t name_len;
-  std::string name;
-} __attribute__((packed));
+// struct j_drec_key_t : j_key_t {
+//   uint16_t name_len;
+//   std::string name;
+// } __attribute__((packed));
 
 // The key half of a directory entry record, including a precomputed hash of its name.
 struct j_drec_hashed_key_t : j_key_t {
