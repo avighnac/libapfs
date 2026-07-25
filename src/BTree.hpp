@@ -50,7 +50,7 @@ public:
       return SENTINEL;
     }
     // Finds the current range (last kv.key <= k)
-    int idx = std::find_first_of(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < kv.key; }) - key_values.begin() - 1;
+    int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < kv.key; }) - key_values.begin() - 1;
     assert(0 <= idx && idx < key_values.size());
     // Here, we just return immediately
     if (is_leaf()) {
@@ -81,7 +81,7 @@ public:
       return SENTINEL;
     }
     // Finds the current range
-    int idx = std::find_first_of(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < kv.key; }) - key_values.begin() - 1;
+    int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < kv.key; }) - key_values.begin() - 1;
     assert(0 <= idx && idx < key_values.size());
     // Here, we just return immediately
     if (is_leaf()) {
