@@ -121,14 +121,22 @@ void print_omap_node(const omap_btree_node &b) {
 
 // Stores the keys and values for a filesystem btree node.
 struct j_btree_node {
-  std::vector<j_key_t> keys;
-  std::vector<j_val_t> vals;
+  std::vector<std::string> keys; // `j_key_t`'s raw bytes
+  std::vector<std::string> vals; // `j_val_t`'s raw bytes
 };
+
+// Converts a struct (`T`) to raw bytes, returned in an `std::string`.
+template <typename T>
+std::string to_bytes(const T &x) {
+  std::string data(sizeof(T), 0);
+  memcpy(data.data(), &x, sizeof(T));
+  return data;
+}
 
 // A j_key_t can take up multiple shapes
 // This function takes in a base address and an `nloc_t` (obtained from a `kvloc_t` that represents an offset)
-// Parses and returns the j_key_t
-j_key_t read_j_key_t(uint8_t *base, nloc_t loc) {
+// Parses and returns the bytes of the j_key_t
+std::string read_j_key_t(uint8_t *base, nloc_t loc) {
   char *addr = (char *)base + loc.off;
   uint64_t key_type = ((*(j_key_t *)addr).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
   switch (key_type) {
@@ -139,7 +147,7 @@ j_key_t read_j_key_t(uint8_t *base, nloc_t loc) {
   case APFS_TYPE_SIBLING_MAP:
   case APFS_TYPE_SNAP_METADATA: {
     // All of these cases are literally just typewraps around a base `j_key_t`
-    return *(j_key_t *)addr;
+    return to_bytes(*(j_key_t *)addr);
   }
   case APFS_TYPE_DIR_REC: {
     j_drec_hashed_key_t key;
@@ -148,7 +156,7 @@ j_key_t read_j_key_t(uint8_t *base, nloc_t loc) {
     size_t len = key.name_len_and_hash & J_DREC_LEN_MASK;
     assert(loc.len - beg == len);
     key.name.append(addr + beg, len);
-    return key;
+    return to_bytes(key);
   }
   case APFS_TYPE_XATTR:
   case APFS_TYPE_SNAP_NAME: {
@@ -159,12 +167,12 @@ j_key_t read_j_key_t(uint8_t *base, nloc_t loc) {
     memcpy((void *)&key, addr, beg);
     assert(loc.len - beg == key.name_len);
     key.name.append(addr + beg, key.name_len);
-    return key;
+    return to_bytes(key);
   }
   case APFS_TYPE_FILE_EXTENT:
   case APFS_TYPE_SIBLING_LINK: {
     assert(sizeof(j_file_extent_key_t) == sizeof(j_sibling_key_t));
-    return *(j_file_extent_key_t *)addr;
+    return to_bytes(*(j_file_extent_key_t *)addr);
   }
   default: {
     throw std::runtime_error("unknown type in read_j_key_t");
@@ -174,8 +182,8 @@ j_key_t read_j_key_t(uint8_t *base, nloc_t loc) {
 
 // A j_val_t can take up multiple shapes
 // This function takes in a base address and an `nloc_t` (obtained from a `kvloc_t` that represents an offset)
-// Parses and returns the j_val_t
-j_val_t read_j_val_t(uint8_t *base, nloc_t loc, uint64_t key_type) {
+// Parses and returns the bytes of the j_val_t
+std::string read_j_val_t(uint8_t *base, nloc_t loc, uint64_t key_type) {
   // For values, in a btree node, the base address is (near or at) the end of the block, and we read from behind.
   char *addr = (char *)base - loc.off;
   switch (key_type) {
@@ -184,53 +192,53 @@ j_val_t read_j_val_t(uint8_t *base, nloc_t loc, uint64_t key_type) {
     size_t beg = sizeof(j_inode_val_t) - sizeof(std::string);
     memcpy((void *)&val, addr, beg);
     val.xfields.append(addr + beg, loc.len - beg);
-    return val;
+    return to_bytes(val);
   }
   case APFS_TYPE_DIR_STATS: {
-    return *(j_dir_stats_val_t *)addr;
+    return to_bytes(*(j_dir_stats_val_t *)addr);
   }
   case APFS_TYPE_EXTENT: {
-    return *(j_phys_ext_val_t *)addr;
+    return to_bytes(*(j_phys_ext_val_t *)addr);
   }
   case APFS_TYPE_FILE_EXTENT: {
-    return *(j_file_extent_val_t *)addr;
+    return to_bytes(*(j_file_extent_val_t *)addr);
   }
   case APFS_TYPE_DSTREAM_ID: {
-    return *(j_dstream_id_val_t *)addr;
+    return to_bytes(*(j_dstream_id_val_t *)addr);
   }
   case APFS_TYPE_SIBLING_MAP: {
-    return *(j_sibling_map_val_t *)addr;
+    return to_bytes(*(j_sibling_map_val_t *)addr);
   }
   case APFS_TYPE_SNAP_METADATA: {
     j_snap_metadata_val_t val;
     size_t beg = sizeof(j_snap_metadata_val_t) - sizeof(std::string);
     memcpy((void *)&val, addr, beg);
     val.name.append(addr + beg, val.name_len);
-    return val;
+    return to_bytes(val);
   }
   case APFS_TYPE_DIR_REC: {
     j_drec_val_t val;
     size_t beg = sizeof(j_drec_val_t) - sizeof(std::string);
     memcpy((void *)&val, addr, beg);
     val.xfields.append(addr + beg, loc.len - beg);
-    return val;
+    return to_bytes(val);
   }
   case APFS_TYPE_XATTR: {
     j_xattr_val_t val;
     size_t beg = sizeof(j_xattr_val_t) - sizeof(std::string);
     memcpy((void *)&val, addr, beg);
     val.xdata.append(addr + beg, val.xdata_len);
-    return val;
+    return to_bytes(val);
   }
   case APFS_TYPE_SNAP_NAME: {
-    return *(j_snap_name_val_t *)addr;
+    return to_bytes(*(j_snap_name_val_t *)addr);
   }
   case APFS_TYPE_SIBLING_LINK: {
     j_sibling_val_t val;
     size_t beg = sizeof(j_sibling_val_t) - sizeof(std::string);
     memcpy((void *)&val, addr, beg);
     val.name.append(addr + beg, val.name_len);
-    return val;
+    return to_bytes(val);
   }
   default: {
     throw std::runtime_error("unknown type in read_j_val_t");
@@ -260,7 +268,7 @@ j_btree_node parse_j_btree_node(const btree_node_phys_t &node) {
   for (int i = 0; i < node.btn_nkeys; ++i) {
     kvloc_t loc = *(kvloc_t *)(table_loc + i * sizeof(kvloc_t));
     parsed.keys[i] = read_j_key_t(keys_loc, loc.k);
-    parsed.vals[i] = read_j_val_t(vals_loc, loc.v, (parsed.keys[i].obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT);
+    parsed.vals[i] = read_j_val_t(vals_loc, loc.v, ((*(j_key_t *)parsed.keys[i].data()).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT);
   }
 
   return parsed;
@@ -309,7 +317,7 @@ int main() {
   // hopefully this is valid because we are not checking the malformation of ephemeral objects
   // in the `checkpoint_phys_t` associated with the superblock
   container_t container = *max_element(container_superblocks.begin(), container_superblocks.end(), [&](const container_t &a, const container_t &b) {
-    return a.block.nx_o.o_xid > b.block.nx_o.o_xid;
+    return a.block.nx_o.o_xid < b.block.nx_o.o_xid;
   });
 
   // Load object map
@@ -319,6 +327,7 @@ int main() {
 
   // We're just assuming the one node is the root/leaf node.
   btree_node_phys_t btree_node = reader.read_object<btree_node_phys_t>(omap.om_tree_oid);
+  assert(btree_node.btn_level == 0);
   omap_btree_node kvs = parse_omap_btree_node(btree_node);
 
   paddr_t apfs_block_addr = kvs.vals[0].ov_paddr;
@@ -326,18 +335,29 @@ int main() {
   apfs_superblock_t apfs_spblk = reader.read_object<apfs_superblock_t>(apfs_block_addr);
   omap_phys_t apfs_omap = reader.read_object<omap_phys_t>(apfs_spblk.apfs_omap_oid);
   btree_node_phys_t apfs_btree = reader.read_object<btree_node_phys_t>(apfs_omap.om_tree_oid);
+  assert(apfs_btree.btn_level == 0);
   omap_btree_node apfs_kvs = parse_omap_btree_node(apfs_btree);
   paddr_t apfs_root_tree_addr = apfs_kvs.vals[0].ov_paddr;
 
   // Filesystem tree
   btree_node_phys_t fs_tree = reader.read_object<btree_node_phys_t>(apfs_root_tree_addr);
+  assert(fs_tree.btn_level == 0);
   j_btree_node j_node = parse_j_btree_node(fs_tree);
   std::cout << "keys\n";
-  for (auto [k, v] : std::views::zip(j_node.keys, j_node.vals)) {
-    uint64_t key_type = (k.obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
+  for (auto [_k, v] : std::views::zip(j_node.keys, j_node.vals)) {
+    uint64_t key_type = ((*(j_key_t *)_k.data()).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
     if (key_type == APFS_TYPE_DIR_REC) {
-      std::cout << (*(j_drec_hashed_key_t *)&k).name_len_and_hash << ' ' << (*(j_drec_hashed_key_t *)&k).name << std::endl;
+      std::cout << "[dir_rec]: " << (*(j_drec_hashed_key_t *)_k.data()).name_len_and_hash << ' ' << (*(j_drec_hashed_key_t *)_k.data()).name << std::endl;
     }
+    // if (key_type == APFS_TYPE_FILE_EXTENT) {
+    //   j_file_extent_key_t key = *(j_file_extent_key_t *)_k.data();
+    //   std::cout << "key laddr: " << key.logical_addr << '\n';
+    //   j_file_extent_val_t val = *(j_file_extent_val_t *)v.data();
+    //   std::cout << "physical block: " << val.phys_block_num << '\n';
+    //   std::cout << "len: " << (val.len_and_flags & J_FILE_EXTENT_LEN_MASK) << " bytes\n";
+    //   std::string data = reader.read_block(val.phys_block_num);
+    //   std::cout << data << '\n';
+    // }
   }
 }
 
