@@ -155,14 +155,13 @@ class BTree {
   using child_t = _key_value_t<KeyType, btn_index_node_val_t>;
   using key_value_t = _key_value_t<bytes_t, bytes_t>;
 
-  /// @brief Parses a `btree_node_phys_t`'s weird layout and populates the `key_values` vector with ordered keys and values.
+  /// @brief Parses a `btree_node_phys_t`'s weird layout and populates the `key_values` vector with ordered keys and values OR
+  // parses a non-leaf node, and returns a list of its keys and values
+  // (`btn_index_node_val_t`) which represent the children node pointers.
   /// @tparam read_key `KeyType read_key(uint8_t *addr, uint16_t len)`. `len` is 0 if `BTNODE_FIXED_KV_SIZE`.
   /// @tparam read_val `ValType read_val(uint8_t *addr, uint16_t len, KeyType key)`. `len` is 0 if `BTNODE_FIXED_KV_SIZE`.
   template <typename read_key, typename read_val>
-  void parse_leaf(const btree_node_phys_t &node) {
-    // Must be a leaf node.
-    assert(node.btn_level == 0);
-
+  void parse_node(const btree_node_phys_t &node) {
     uint8_t *table_loc = (uint8_t *)node.btn_data.data() + node.btn_table_space.off;
     uint8_t *keys_loc = table_loc + node.btn_table_space.len;
     uint8_t *vals_loc = (uint8_t *)node.btn_data.data() + (BTREE_NODE_SIZE_DEFAULT - (sizeof(btree_node_phys_t) - sizeof(bytes_t)));
@@ -189,80 +188,40 @@ class BTree {
     }
   }
 
-  // Parses a non-leaf node, and returns a list of its keys and values
-  // (`btn_index_node_val_t`) which represent the children node pointers.
-  template <typename read_key, typename read_val>
-  void parse_internal(const btree_node_phys_t &node) {
-    // Must be a non-leaf node.
-    assert(node.btn_level != 0);
-
-    uint8_t *table_loc = (uint8_t *)node.btn_data.data() + node.btn_table_space.off;
-    uint8_t *keys_loc = table_loc + node.btn_table_space.len;
-    uint8_t *vals_loc = (uint8_t *)node.btn_data.data() + (BTREE_NODE_SIZE_DEFAULT - (sizeof(btree_node_phys_t) - sizeof(bytes_t)));
-    // We are a root node
-    if ((node.btn_o.o_type & OBJECT_TYPE_MASK) == OBJECT_TYPE_BTREE) {
-      vals_loc -= sizeof(btree_info_t);
-    }
-
-    // There are `node.btn_nkeys` key-value pairs
-    // btree_children_t parsed;
-    children.resize(node.btn_nkeys);
-    for (int i = 0; i < node.btn_nkeys; ++i) {
-      kvloc_t loc;
-      if (node.btn_flags & BTNODE_FIXED_KV_SIZE) {
-        // Populate offsets of loc, leave lengths of loc as 0
-        kvoff_t off = ((kvoff_t *)table_loc)[i];
-        loc.k.off = off.k;
-        loc.v.off = off.v;
-      } else {
-        loc = ((kvloc_t *)table_loc)[i];
-      }
-      children[i].key = read_key()(keys_loc + loc.k.off, loc.k.len);
-      children[i].val = read_val()(vals_loc - loc.v.off, loc.v.len, children[i].key);
-    }
-  }
-
 public:
   btree_node_phys_t node;
   // For a non-leaf, we'll have children
   // For a leaf node, we'll have key-value pairs
-  union {
-    std::vector<child_t> children;
-    std::vector<key_value_t> key_values;
-  };
+  std::vector<key_value_t> key_values;
 
   bool is_leaf() const { return node.btn_level == 0; }
+  std::vector<child_t> children() const {
+    assert(!is_leaf());
+    std::vector<child_t> ret(key_values.size());
+    for (int i = 0; i < int(key_values.size()); ++i) {
+      ret[i].key = *(KeyType *)key_values[i].key.data();
+      ret[i].val = *(btn_index_node_val_t *)key_values[i].val.data();
+    }
+    return ret;
+  }
 
   BTree(const btree_node_phys_t &node) : node(node) {
-    if (is_leaf()) {
-      new (&key_values) std::vector<key_value_t>();
-    } else {
-      new (&children) std::vector<child_t>();
-    }
-
     if constexpr (std::is_same_v<KeyType, omap_key_t>) {
       if (is_leaf()) {
-        parse_leaf<read_key_val_t<omap_key_t>, read_key_val_t<omap_val_t>>(node);
+        parse_node<read_key_val_t<omap_key_t>, read_key_val_t<omap_val_t>>(node);
       } else {
-        parse_internal<read_key_val_t<omap_key_t>, read_key_val_t<btn_index_node_val_t>>(node);
+        parse_node<read_key_val_t<omap_key_t>, read_key_val_t<btn_index_node_val_t>>(node);
       }
       return;
     }
     if constexpr (std::is_same_v<KeyType, j_key_t>) {
       if (is_leaf()) {
-        parse_leaf<read_j_key_t, read_j_val_t>(node);
+        parse_node<read_j_key_t, read_j_val_t>(node);
       } else {
-        parse_internal<read_j_key_t, read_key_val_t<btn_index_node_val_t>>(node);
+        parse_node<read_j_key_t, read_key_val_t<btn_index_node_val_t>>(node);
       }
       return;
     }
-    throw std::runtime_error("unknown KeyType in BTree");
-  }
-  ~BTree() {
-    if (node.btn_level != 0) {
-      children.~vector();
-    } else {
-      key_values.~vector();
-    }
+    throw std::runtime_error("unknown Key in BTree");
   }
 };

@@ -75,4 +75,21 @@ Apfs::Apfs(const std::string &filename) : reader(filename) {
   // Load the object map b-tree
   btree_node_phys_t physics = reader.read_object<btree_node_phys_t>(omap.om_tree_oid);
   BTree<omap_key_t> omap_btree(physics);
+
+  auto dfs = [&](auto &&self, BTree<omap_key_t> node) {
+    if (node.is_leaf()) {
+      for (auto &[_k, _v] : node.key_values) {
+        omap_key_t k = *(omap_key_t *)_k.data();
+        omap_val_t v = *(omap_val_t *)_v.data();
+        std::cout << "(" << k.ok_oid << ", " << k.ok_xid << "): " << v.ov_paddr << '\n';
+      }
+      return;
+    }
+    for (auto &[k, v] : node.children()) {
+      btree_node_phys_t physics = reader.read_object<btree_node_phys_t>(v.binv_child_oid);
+      BTree<omap_key_t> child(physics);
+      self(self, child);
+    }
+  };
+  dfs(dfs, omap_btree);
 }
