@@ -1,5 +1,6 @@
 #include "src/checksum.hpp"
-#include "src/types.hpp"
+#include "src/types/types.hpp"
+#include "src/BlockReader.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
@@ -7,68 +8,6 @@
 #include <iostream>
 #include <ranges>
 #include <vector>
-
-// A utility class that reads raw memory from blocks in chunks of BLOCK_SIZE
-class BlockReader {
-  FILE *f;
-
-public:
-  size_t BLOCK_SIZE = 4096;
-
-  BlockReader(std::string filename) {
-    f = fopen(filename.data(), "rb");
-    if (!f) {
-      throw std::runtime_error("fail: Could not open device. Did you forget 'sudo' or 'diskutil unmountDisk'?");
-    }
-  }
-  ~BlockReader() { fclose(f); }
-
-  // Read a block and return its raw bytes
-  std::string read_block(uint64_t block_num) {
-    fseek(f, block_num * BLOCK_SIZE, SEEK_SET);
-    std::string data(BLOCK_SIZE, 0);
-    fread((char *)data.data(), BLOCK_SIZE, 1, f);
-    return data;
-  }
-
-  // Read an APFS object (that begins with `obj_phys_t`) from a given block,
-  // verify its checksum, and return it
-  template <typename T>
-  T read_object(uint64_t block_num) {
-    std::string mem = read_block(block_num);
-    if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
-      throw std::runtime_error("checksum verification failed while reading object");
-    }
-    return *(T *)mem.data();
-  }
-};
-
-template <>
-checkpoint_map_phys_t BlockReader::read_object(uint64_t block_num) {
-  std::string mem = read_block(block_num);
-  if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
-    throw std::runtime_error("checksum verification failed while reading object");
-  }
-  size_t off = sizeof(checkpoint_map_phys_t) - sizeof(std::vector<checkpoint_mapping_t>);
-  checkpoint_map_phys_t obj;
-  memcpy((void *)&obj, mem.data(), off);
-  obj.cpm_map.resize(obj.cpm_count);
-  memcpy(obj.cpm_map.data(), mem.data() + off, obj.cpm_count * sizeof(checkpoint_mapping_t));
-  return obj;
-}
-
-template <>
-btree_node_phys_t BlockReader::read_object(uint64_t block_num) {
-  std::string mem = read_block(block_num);
-  if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
-    throw std::runtime_error("checksum verification failed while reading object");
-  }
-  size_t off = sizeof(btree_node_phys_t) - sizeof(std::string);
-  btree_node_phys_t obj;
-  memcpy((void *)&obj, mem.data(), off);
-  obj.btn_data.append(mem.data() + off, BTREE_NODE_SIZE_DEFAULT - off);
-  return obj;
-}
 
 // An entry in the checkpoint descriptor area.
 struct container_t {
