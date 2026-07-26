@@ -11,7 +11,7 @@
 
 // By the way, this is actually a B+ tree
 // KeyType should have operator< and numeric_limits<KeyType>::max() defined
-template <typename KeyType>
+template <typename KeyType, typename Compare = std::less<KeyType>>
 class BTree {
   template <typename Key, typename Val>
   struct _key_value_t {
@@ -33,6 +33,9 @@ class BTree {
 
   const BlockReader &reader;
 
+  Compare lt;
+  bool lte(const KeyType &l, const KeyType &r) const { return lt(l, r) || l == r; }
+
 public:
   btree_node_phys_t node;
   // For a non-leaf, we'll have children
@@ -45,7 +48,7 @@ public:
   bool is_leaf() const;
   std::vector<child_t> children() const;
 
-  BTree(const btree_node_phys_t &node, const BlockReader &reader);
+  BTree(const btree_node_phys_t &node, const BlockReader &reader, Compare lt = {});
 
   // Finds the first key-value pair greater than or equal to `k`.
   // `Convert` should convert virtual addresses (where applicable) to physical addresses.
@@ -63,10 +66,16 @@ public:
   key_value_t prev(const KeyType &k, const Convert &convert);
 };
 
-template <typename KeyType>
-BTree<KeyType> BlockReader::read_btree(uint64_t block_num) const {
+template <typename KeyType, typename Compare = std::less<KeyType>>
+BTree<KeyType, Compare> BlockReader::read_btree(uint64_t block_num) const {
   btree_node_phys_t raw = read_object<btree_node_phys_t>(block_num);
-  return BTree<KeyType>(raw, *this);
+  return BTree<KeyType, Compare>(raw, *this);
+}
+
+template <typename KeyType, typename Compare>
+BTree<KeyType, Compare> BlockReader::read_btree(uint64_t block_num, Compare lt) const {
+  btree_node_phys_t raw = read_object<btree_node_phys_t>(block_num);
+  return BTree<KeyType, Compare>(raw, *this, lt);
 }
 
 template <typename T>
@@ -89,9 +98,9 @@ struct read_j_val_t {
   bytes_t operator()(uint8_t *addr, uint16_t len, bytes_t key);
 };
 
-template <typename KeyType>
+template <typename KeyType, typename Compare>
 template <typename read_key, typename read_val>
-void BTree<KeyType>::parse_node(const btree_node_phys_t &node) {
+void BTree<KeyType, Compare>::parse_node(const btree_node_phys_t &node) {
   uint8_t *table_loc = (uint8_t *)node.btn_data.data() + node.btn_table_space.off;
   uint8_t *keys_loc = table_loc + node.btn_table_space.len;
   uint8_t *vals_loc = (uint8_t *)node.btn_data.data() + (BTREE_NODE_SIZE_DEFAULT - (sizeof(btree_node_phys_t) - sizeof(bytes_t)));
@@ -118,11 +127,11 @@ void BTree<KeyType>::parse_node(const btree_node_phys_t &node) {
   }
 }
 
-template <typename Key>
-bool BTree<Key>::is_leaf() const { return node.btn_level == 0; }
+template <typename KeyType, typename Compare>
+bool BTree<KeyType, Compare>::is_leaf() const { return node.btn_level == 0; }
 
-template <typename KeyType>
-std::vector<typename BTree<KeyType>::child_t> BTree<KeyType>::children() const {
+template <typename KeyType, typename Compare>
+std::vector<typename BTree<KeyType, Compare>::child_t> BTree<KeyType, Compare>::children() const {
   assert(!is_leaf());
   std::vector<child_t> ret(key_values.size());
   for (int i = 0; i < int(key_values.size()); ++i) {
@@ -132,8 +141,8 @@ std::vector<typename BTree<KeyType>::child_t> BTree<KeyType>::children() const {
   return ret;
 }
 
-template <typename KeyType>
-BTree<KeyType>::BTree(const btree_node_phys_t &node, const BlockReader &reader) : node(node), reader(reader) {
+template <typename KeyType, typename Compare>
+BTree<KeyType, Compare>::BTree(const btree_node_phys_t &node, const BlockReader &reader, Compare lt) : node(node), reader(reader), lt(std::move(lt)) {
   // This should be defined for KeyType
   SENTINEL.key = to_bytes(std::numeric_limits<KeyType>::max());
   if constexpr (std::is_same_v<KeyType, omap_key_t>) {
@@ -155,18 +164,18 @@ BTree<KeyType>::BTree(const btree_node_phys_t &node, const BlockReader &reader) 
   throw std::runtime_error("unknown Key in BTree");
 }
 
-template <typename KeyType>
+template <typename KeyType, typename Compare>
 template <typename Convert>
-BTree<KeyType>::key_value_t BTree<KeyType>::lower_bound(const KeyType &k, const Convert &convert) {
-  if (k <= cast<KeyType>(key_values[0].key)) {
+BTree<KeyType, Compare>::key_value_t BTree<KeyType, Compare>::lower_bound(const KeyType &k, const Convert &convert) {
+  if (lte(k, cast<KeyType>(key_values[0].key))) {
     return key_values[0];
   }
   // Finds the current range (last kv.key <= k)
-  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < cast<KeyType>(kv.key); }) - key_values.begin() - 1;
+  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return lt(k, cast<KeyType>(kv.key)); }) - key_values.begin() - 1;
   assert(0 <= idx && idx < key_values.size());
   // Here, we just return immediately
   if (is_leaf()) {
-    if (cast<KeyType>(key_values[idx].key) < k) {
+    if (lt(cast<KeyType>(key_values[idx].key), k)) {
       return idx + 1 == key_values.size() ? SENTINEL : key_values[idx + 1];
     }
     return key_values[idx];
@@ -183,14 +192,14 @@ BTree<KeyType>::key_value_t BTree<KeyType>::lower_bound(const KeyType &k, const 
   return reader.read_btree<KeyType>(addr).lower_bound(k, convert);
 }
 
-template <typename KeyType>
+template <typename KeyType, typename Compare>
 template <typename Convert>
-BTree<KeyType>::key_value_t BTree<KeyType>::upper_bound(const KeyType &k, const Convert &convert) {
-  if (k < cast<KeyType>(key_values[0].key)) {
+BTree<KeyType, Compare>::key_value_t BTree<KeyType, Compare>::upper_bound(const KeyType &k, const Convert &convert) {
+  if (lt(k, cast<KeyType>(key_values[0].key))) {
     return key_values[0];
   }
   // Finds the current range
-  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < cast<KeyType>(kv.key); }) - key_values.begin() - 1;
+  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return lt(k, cast<KeyType>(kv.key)); }) - key_values.begin() - 1;
   assert(0 <= idx && idx < key_values.size());
   // Here, we just return immediately
   if (is_leaf()) {
@@ -208,18 +217,18 @@ BTree<KeyType>::key_value_t BTree<KeyType>::upper_bound(const KeyType &k, const 
   return reader.read_btree<KeyType>(addr).upper_bound(k, convert);
 }
 
-template <typename KeyType>
+template <typename KeyType, typename Compare>
 template <typename Convert>
-BTree<KeyType>::key_value_t BTree<KeyType>::prev(const KeyType &k, const Convert &convert) {
-  if (cast<KeyType>(key_values.back().key) < k) {
+BTree<KeyType, Compare>::key_value_t BTree<KeyType, Compare>::prev(const KeyType &k, const Convert &convert) {
+  if (lt(cast<KeyType>(key_values.back().key), k)) {
     return key_values.back();
   }
   // Finds the current range
-  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < cast<KeyType>(kv.key); }) - key_values.begin() - 1;
+  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return lt(k, cast<KeyType>(kv.key)); }) - key_values.begin() - 1;
   assert(0 <= idx && idx < key_values.size());
   // Here, we just return immediately
   if (is_leaf()) {
-    if (cast<KeyType>(key_values[idx].key) < k) {
+    if (lt(cast<KeyType>(key_values[idx].key), k)) {
       return key_values[idx];
     }
     return idx - 1 == -1 ? SENTINEL : key_values[idx - 1];
