@@ -14,9 +14,14 @@ void print_help() {
   std::cout << color::white("Usage") << '\n';
   std::cout << color::dim("  apfs <verb> <filename>") << "\n\n";
 
+  size_t max_len = (*std::max_element(verbs().begin(), verbs().end(), [](auto &a, auto &b) {
+    return a->name.length() < b->name.length();
+  }))->name.length() + 2;
+
   std::cout << color::white("Verbs") << '\n';
   for (auto &verb : verbs()) {
-    std::cout << color::dim("  └─ ") << color::bold(verb->name) << "  " << verb->description << '\n';
+    std::cout << color::dim("  └─ ") << color::bold(verb->name)
+      << std::string(max_len - verb->name.length(), ' ') << verb->description << '\n';
   }
 }
 
