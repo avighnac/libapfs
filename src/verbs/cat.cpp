@@ -1,12 +1,21 @@
+// This is a purposefully temporary inefficient (but working) implementation for testing purposes
+
 #include <iostream>
 #include <BTree.hpp>
 #include <functional>
+#include <ranges>
+#include <set>
+#include <string_view>
 #include <verb.hpp>
-
-// ./apfs cat /dev/rdisk5 TestAPFS test.cpp
 
 struct CatVerb : Verb {
   CatVerb() : Verb("cat", "Prints the contents of the given file") {}
+
+  struct Inode {
+    uint64_t num;
+    uint64_t private_id;
+    uint64_t type;
+  };
 
   // ./apfs cat diskname volname filename
   int handler(Apfs &apfs, const std::vector<std::string> &args) override {
@@ -43,66 +52,87 @@ struct CatVerb : Verb {
       return cast<omap_val_t>(kv.val).ov_paddr;
     };
 
-    BTree<j_key_t> root_tree = apfs.reader.read_btree<j_key_t>(get_paddr(volume.apfs_root_tree_oid));
+    auto root_tree = apfs.reader.read_btree<j_key_t>(get_paddr(volume.apfs_root_tree_oid), compare_j_key_t);
+    using jtype = BTree<j_key_t, bool (*)(const bytes_t &_l, const bytes_t &_r)>;
 
-    uint64_t file_id = 0;
+    auto get_inode = [&](std::string name, uint64_t parent_id) {
 
-    std::function<void(const BTree<j_key_t> &)> find_drec = [&](const BTree<j_key_t> &node) {
-      if (node.is_leaf()) {
-        for (auto &[k, v] : node.key_values) {
-          uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-          if (key_type == APFS_TYPE_DIR_REC) {
-            j_drec_hashed_key_t key = cast<j_drec_hashed_key_t>(k);
-            // if ((cast<j_drec_val_t>(v).flags & DREC_TYPE_MASK) == DT_DIR) {
-            //   std::cout << key.name << std::endl;
-            // }
-            if (key.name == filename) {
-              file_id = cast<j_drec_val_t>(v).file_id;
-              break;
+      std::set<std::pair<uint64_t, uint64_t>> inodes;
+
+      std::function<void(const jtype &)> find_drecs = [&](const jtype &node) {
+        if (node.is_leaf()) {
+          for (auto &[k, v] : node.key_values) {
+            uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
+            if (key_type == APFS_TYPE_DIR_REC && cast<j_drec_hashed_key_t>(k).name == name) {
+              inodes.insert({cast<j_drec_val_t>(v).file_id, cast<j_drec_val_t>(v).flags});
             }
           }
+          return;
         }
-        return;
-      }
-      for (auto &[k, v] : node.children()) {
-        find_drec(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid)));
-        if (file_id) {
-          break;
+        for (auto &[k, v] : node.children()) {
+          find_drecs(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
         }
+      };
+
+      find_drecs(root_tree);
+
+      if (inodes.empty()) {
+        return Inode{0, 0, 0};
       }
-    };
 
-    find_drec(root_tree);
-    assert(file_id);
+      uint64_t inode_num = 0, private_id = 0, file_type = 0;
 
-    uint64_t private_id = 0;
-
-    std::function<void(const BTree<j_key_t> &)> find_inode = [&](const BTree<j_key_t> &node) {
-      if (node.is_leaf()) {
-        for (auto &[k, v] : node.key_values) {
-          uint64_t key_id = cast<j_key_t>(k).obj_id_and_type & OBJ_ID_MASK;
-          uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-          if (key_type == APFS_TYPE_INODE && key_id == file_id) {
-            private_id = cast<j_inode_val_t>(v).private_id;
+      std::function<void(const jtype &)> find_private_id = [&](const jtype &node) {
+        if (node.is_leaf()) {
+          for (auto &[k, v] : node.key_values) {
+            uint64_t key_id = cast<j_key_t>(k).obj_id_and_type & OBJ_ID_MASK;
+            uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
+            if (key_type == APFS_TYPE_INODE && cast<j_inode_val_t>(v).parent_id == parent_id) {
+              auto it = inodes.lower_bound({key_id, 0});
+              if (it != inodes.end() && it->first == key_id) {
+                inode_num = key_id;
+                private_id = cast<j_inode_val_t>(v).private_id;
+                file_type = it->second;
+                break;
+              }
+            }
+          }
+          return;
+        }
+        for (auto &[k, v] : node.children()) {
+          find_private_id(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
+          if (private_id) {
             break;
           }
         }
-        return;
-      }
-      for (auto &[k, v] : node.children()) {
-        find_inode(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid)));
-        if (private_id) {
-          break;
-        }
-      }
+      };
+
+      find_private_id(root_tree);
+
+      return Inode{inode_num, private_id, file_type & DREC_TYPE_MASK};
     };
 
-    find_inode(root_tree);
-    assert(private_id);
+    uint64_t private_id, parent_id = ROOT_DIR_INO_NUM, file_type;
+
+    for (const auto _name : std::views::split(std::string_view(filename), '/')) {
+      std::string name{std::string_view(_name)};
+      if (name.empty()) continue;
+      auto [curr_inum, curr_pid, type] = get_inode(name, parent_id);
+      if (!curr_inum) {
+        throw Error("file " + filename + " does not exist");
+      }
+      private_id = curr_pid;
+      parent_id = curr_inum;
+      file_type = type;
+    }
+
+    if (file_type == DT_DIR) {
+      throw Error(filename + " is a directory");
+    }
 
     std::string contents;
 
-    std::function<void(const BTree<j_key_t> &)> find_externs = [&](const BTree<j_key_t> &node) {
+    std::function<void(const jtype &)> find_externs = [&](const jtype &node) {
       if (node.is_leaf()) {
         for (auto &[k, v] : node.key_values) {
           uint64_t key_id = cast<j_key_t>(k).obj_id_and_type & OBJ_ID_MASK;
@@ -125,7 +155,7 @@ struct CatVerb : Verb {
         return;
       }
       for (auto &[k, v] : node.children())
-        find_externs(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid)));
+        find_externs(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
     };
 
     find_externs(root_tree);
