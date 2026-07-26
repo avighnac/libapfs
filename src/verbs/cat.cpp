@@ -53,6 +53,9 @@ struct CatVerb : Verb {
           uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
           if (key_type == APFS_TYPE_DIR_REC) {
             j_drec_hashed_key_t key = cast<j_drec_hashed_key_t>(k);
+            // if ((cast<j_drec_val_t>(v).flags & DREC_TYPE_MASK) == DT_DIR) {
+            //   std::cout << key.name << std::endl;
+            // }
             if (key.name == filename) {
               file_id = cast<j_drec_val_t>(v).file_id;
               break;
@@ -109,8 +112,13 @@ struct CatVerb : Verb {
             uint64_t len = cast<j_file_extent_val_t>(v).len_and_flags & J_FILE_EXTENT_LEN_MASK;
             if (contents.size() < addr + len)
               contents.resize(addr + len);
-            bytes_t block = apfs.reader.read_block(cast<j_file_extent_val_t>(v).phys_block_num);
-            memcpy(contents.data() + addr, block.data(), len);
+            uint64_t block_size = apfs.container.block.nx_block_size;
+            size_t num_blocks = (len + block_size - 1) / block_size;
+            for (int i = 0; i < num_blocks; i++) {
+              bytes_t block = apfs.reader.read_block(cast<j_file_extent_val_t>(v).phys_block_num + i);
+              memcpy(contents.data() + addr + (block_size * i), block.data(), std::min(len, block_size));
+              len -= block_size;
+            }
             break;
           }
         }
