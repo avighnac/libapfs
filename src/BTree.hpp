@@ -89,16 +89,6 @@ struct read_j_val_t {
   bytes_t operator()(uint8_t *addr, uint16_t len, bytes_t key);
 };
 
-// Converts a struct (`T`) to raw bytes, returned in a `bytes_t`.
-template <typename T>
-static bytes_t to_bytes(const T &x) {
-  bytes_t data(sizeof(T), 0);
-  memcpy(data.data(), &x, sizeof(T));
-  return data;
-}
-template <>
-bytes_t to_bytes(const bytes_t &x) { return x; }
-
 template <typename KeyType>
 template <typename read_key, typename read_val>
 void BTree<KeyType>::parse_node(const btree_node_phys_t &node) {

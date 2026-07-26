@@ -3,6 +3,10 @@
 #include <cassert>
 #include <iostream>
 
+// Identity
+template <>
+bytes_t to_bytes(const bytes_t &x) { return x; }
+
 // From https://jtsylve.blog/post/2022/12/15/APFS-FSTrees
 // For some reason the actual docs don't seem to mention the hash comparasion in `APFS_TYPE_DIR_REC`?
 bool compare_j_key_t(const bytes_t &_l, const bytes_t &_r) {

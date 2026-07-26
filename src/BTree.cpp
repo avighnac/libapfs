@@ -18,11 +18,11 @@ bytes_t read_j_key_t::operator()(uint8_t *addr, uint16_t tot_len) {
   }
   case APFS_TYPE_DIR_REC: {
     j_drec_hashed_key_t key;
-    size_t beg = sizeof(j_drec_hashed_key_t) - sizeof(bytes_t);
+    size_t beg = sizeof(j_drec_hashed_key_t) - sizeof(std::string);
     memcpy((void *)&key, addr, beg);
     size_t len = key.name_len_and_hash & J_DREC_LEN_MASK;
     assert(tot_len - beg == len);
-    key.name.append((char *)addr + beg, len);
+    key.name.append((char *)addr + beg, len - 1);
     return to_bytes(key);
   }
   case APFS_TYPE_XATTR:
@@ -30,10 +30,10 @@ bytes_t read_j_key_t::operator()(uint8_t *addr, uint16_t tot_len) {
     // All cases are equivalent!
     assert(sizeof(j_xattr_key_t) == sizeof(j_snap_name_key_t));
     j_xattr_key_t key;
-    size_t beg = sizeof(j_xattr_key_t) - sizeof(bytes_t);
+    size_t beg = sizeof(j_xattr_key_t) - sizeof(std::string);
     memcpy((void *)&key, addr, beg);
     assert(tot_len - beg == key.name_len);
-    key.name.append((char *)addr + beg, key.name_len);
+    key.name.append((char *)addr + beg, key.name_len - 1);
     return to_bytes(key);
   }
   case APFS_TYPE_FILE_EXTENT:
@@ -80,7 +80,7 @@ bytes_t read_j_val_t::operator()(uint8_t *addr, uint16_t len, bytes_t key) {
     j_snap_metadata_val_t val;
     size_t beg = sizeof(j_snap_metadata_val_t) - sizeof(bytes_t);
     memcpy((void *)&val, addr, beg);
-    val.name.append((char *)addr + beg, val.name_len);
+    val.name.append((char *)addr + beg, val.name_len - 1);
     return to_bytes(val);
   }
   case APFS_TYPE_DIR_REC: {
@@ -104,7 +104,7 @@ bytes_t read_j_val_t::operator()(uint8_t *addr, uint16_t len, bytes_t key) {
     j_sibling_val_t val;
     size_t beg = sizeof(j_sibling_val_t) - sizeof(bytes_t);
     memcpy((void *)&val, addr, beg);
-    val.name.append((char *)addr + beg, val.name_len);
+    val.name.append((char *)addr + beg, val.name_len - 1);
     return to_bytes(val);
   }
   default: {
