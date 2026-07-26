@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 // Address type
@@ -19,6 +20,6 @@ typedef uint32_t crypto_flags_t;
 
 typedef uint32_t uid_t;
 typedef uint32_t gid_t;
-typedef uint16_t mode_t;
+typedef uint16_t apfs_mode_t;
 
 typedef std::string bytes_t;

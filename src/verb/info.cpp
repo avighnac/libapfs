@@ -1,5 +1,6 @@
 #include <Apfs.hpp>
 #include <BlockReader.hpp>
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <sstream>

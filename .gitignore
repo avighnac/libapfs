@@ -3,3 +3,4 @@ build/
 *.dmg
 *.dSYM
 .vscode/
+*.DS_Store

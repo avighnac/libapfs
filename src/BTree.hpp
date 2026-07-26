@@ -1,6 +1,7 @@
 #pragma once
 
 #include <BlockReader.hpp>
+#include <algorithm>
 #include <cassert>
 #include <limits>
 #include <type_traits>

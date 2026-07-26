@@ -101,7 +101,7 @@ struct j_inode_val_t : j_val_t {
   uint32_t bsd_flags;
   uid_t owner;
   gid_t group;
-  mode_t mode;
+  apfs_mode_t mode;
   uint16_t pad1;
   uint64_t uncompressed_size;
   bytes_t xfields;

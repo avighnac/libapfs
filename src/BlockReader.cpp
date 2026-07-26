@@ -1,4 +1,5 @@
 #include "BlockReader.hpp"
+#include <util.hpp>
 
 // Read a block and return its raw bytes
 bytes_t BlockReader::read_block(uint64_t block_num) const {

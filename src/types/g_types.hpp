@@ -6,6 +6,7 @@
 #include "typedefs.hpp"
 #include <compare>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 // Mostly from https://developer.apple.com/support/downloads/Apple-File-System-Reference.pdf
