@@ -2,6 +2,7 @@
 
 #include <Apfs.hpp>
 #include <string>
+#include <memory>
 
 struct Verb {
   const std::string name;
