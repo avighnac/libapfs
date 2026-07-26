@@ -10,11 +10,11 @@ std::vector<std::string> verbs = {"info"};
 std::vector<std::string> descriptions = {"prints information about the container"};
 
 void print_help() {
-  std::cout << "Usage: apfs <verb> <filename>\n";
-  std::cout << "Verbs:\n";
-  for (int i = 0; i < int(verbs.size()); ++i) {
-    std::cout << "  " << verbs[i] << ": " << descriptions[i] << '\n';
-  }
+  std::cout << color::white("Usage") << '\n';
+  std::cout << color::dim("  apfs <verb> <filename>") << "\n\n";
+
+  std::cout << color::white("Verbs") << '\n';
+  std::cout << color::dim("  └─ ") << color::bold("info") << "  Prints information about the container\n";
 }
 
 void print_error(const std::string &msg) {

@@ -49,17 +49,17 @@ int verb_info(int argc, const std::vector<std::string> &argv) {
   }
 
   auto print_row = [&](const std::string &prefix, const std::string &label, const std::string &value) {
-    std::cout << prefix << std::left << std::setw(static_cast<int>(max_label_len + 2)) << label << color::bold(value) << '\n';
+    std::cout << color::dim(prefix) << std::left << std::setw(static_cast<int>(max_label_len + 2)) << label << color::bold(value) << '\n';
   };
 
-  std::cout << color::blue("Container") << '\n';
+  std::cout << color::white("Container") << '\n';
   print_row("├─ ", "Number of blocks", std::to_string(apfs.superblock.nx_block_count));
   print_row("├─ ", "Block size", std::to_string(apfs.superblock.nx_block_size) + " bytes");
   print_row("├─ ", "Physical size", format_size(apfs.superblock.nx_block_count * apfs.superblock.nx_block_size));
   print_row("└─ ", "Volumes", std::to_string(apfs.volumes.size()));
 
   std::cout << '\n';
-  std::cout << color::blue("Volumes") << '\n';
+  std::cout << color::white("Volumes") << '\n';
   for (size_t i = 0; i < apfs.volumes.size(); ++i) {
     const auto &spblk = apfs.volumes[i];
     print_row(i + 1 == apfs.volumes.size() ? "└─ " : "├─ ", (const char *)spblk.apfs_volname, format_size(spblk.apfs_fs_alloc_count * apfs.container.block.nx_block_size));
