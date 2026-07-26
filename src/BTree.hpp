@@ -137,7 +137,7 @@ std::vector<typename BTree<KeyType>::child_t> BTree<KeyType>::children() const {
   std::vector<child_t> ret(key_values.size());
   for (int i = 0; i < int(key_values.size()); ++i) {
     ret[i].key = cast<KeyType>(key_values[i].key);
-    ret[i].val = cast<btn_index_node_val_t>(key_values[i].data());
+    ret[i].val = cast<btn_index_node_val_t>(key_values[i].val);
   }
   return ret;
 }
