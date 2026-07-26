@@ -46,9 +46,9 @@ int _main(int argc, char **_argv) {
   for (auto &verb : verbs()) {
     if (_argv[1] == verb->name) {
       Apfs apfs(_argv[2]);
-      std::vector<std::string> argv(argc - 2);
-      for (int i = 2; i < argc; ++i) {
-        argv[i] = _argv[i];
+      std::vector<std::string> argv(argc - 3);
+      for (int i = 3; i < argc; ++i) {
+        argv[i - 3] = _argv[i];
       }
       return verb->handler(apfs, argv);
     }
