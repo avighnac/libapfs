@@ -10,6 +10,42 @@ The `src/verb/` directory contains 'actions' that the command-line executable ca
 
 Most custom types have their own `.hpp` and `.cpp` files, for example, `BlockReader` and `BTree`. These can also be found in the `src/` directory.
 
+# Features
+
+```
+Usage
+  apfs <verb> <filename>
+
+Verbs
+  └─ cat   Prints the contents of the given file
+  └─ info  Prints information about the container
+```
+
+`ls` is unfortunately not supported (yet), but `cat` works on exact paths (although it is very inefficient and is right now just a test version).
+
+# Examples
+
+You can copy files over like this:
+
+```bash
+./apfs cat /dev/rdisk8 USB /path/to/file.zip > file.zip
+```
+
+Container information currently looks like this:
+```
+Container
+├─ Number of blocks  610304
+├─ Block size        4096 bytes
+├─ Physical size     2.33 GB
+└─ Volumes           4
+
+Volumes
+├─ ubuntu - Data     2.50 MB
+├─ ubuntu            1.10 MB
+├─ Preboot           189 MB
+└─ Recovery          772 MB
+```
+
 # Resources
 
 We used the following resources to write this library:
