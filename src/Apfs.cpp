@@ -71,4 +71,38 @@ Apfs::Apfs(const std::string &filename) : reader(filename) {
   if ((omap.om_tree_type & OBJ_STORAGETYPE_MASK) != OBJ_PHYSICAL) {
     throw Error("superblock object map does not store physical addresses");
   }
+  // Read the virtual object b-tree
+  BTree<omap_key_t> virtual_obj_tree = reader.read_btree<omap_key_t>(omap.om_tree_oid);
+
+  // A basic identity address converter
+  auto convert_identity = [&](const oid_t &oid) { return paddr_t(oid); };
+  // This function uses the virtual object tree to map virtual addresses to physical addresses
+  auto convert_v_oid = [&](const oid_t &v_oid) {
+    // `oid_t`s shouuld match. After that, pick the mapping with the largest transaction
+    // still <= the container's transcation id
+    omap_key_t key;
+    key.ok_oid = v_oid;
+    key.ok_xid = container.block.nx_o.o_xid;
+    auto kv = virtual_obj_tree.upper_bound(key, convert_identity);
+    kv = virtual_obj_tree.prev(cast<omap_key_t>(kv.key), convert_identity);
+    if (kv == BTree<omap_key_t>::SENTINEL || cast<omap_key_t>(kv.key).ok_oid != v_oid) {
+      throw Error("omap_key for oid=" + std::to_string(v_oid) + " and xid<=" + std::to_string(key.ok_xid) + " not found in object map");
+    }
+    return cast<omap_val_t>(kv.val).ov_paddr;
+  };
+
+  // Get the list of volumes
+  std::vector<oid_t> volume_oids;
+  for (int i = 0; i < NX_MAX_FILE_SYSTEMS; ++i) {
+    oid_t oid = superblock.nx_fs_oid[i];
+    if (oid) {
+      volume_oids.push_back(oid);
+    }
+  }
+
+  // Find each one's `apfs_superblock_t`.
+  volumes.resize(volume_oids.size());
+  for (int i = 0; i < int(volumes.size()); ++i) {
+    volumes[i] = reader.read_object<apfs_superblock_t>(convert_v_oid(volume_oids[i]));
+  }
 }

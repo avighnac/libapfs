@@ -7,6 +7,10 @@
 #include <system_error>
 #include <types.hpp>
 
+// Forward declaration
+template <typename KeyType>
+class BTree;
+
 // A utility class that reads raw memory from blocks in chunks of BLOCK_SIZE
 class BlockReader {
   FILE *f;
@@ -15,18 +19,22 @@ public:
   size_t BLOCK_SIZE = NX_DEFAULT_BLOCK_SIZE;
 
   // Read a block and return its raw bytes
-  bytes_t read_block(uint64_t block_num);
+  bytes_t read_block(uint64_t block_num) const;
 
   // Read an APFS object (that begins with `obj_phys_t`) from a given block,
   // verify its checksum, and return it
   template <typename T>
-  T read_object(uint64_t block_num) {
+  T read_object(uint64_t block_num) const {
     bytes_t mem = read_block(block_num);
     if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
       throw Error("block number " + std::to_string(block_num) + ", checksum verification failed while reading object");
     }
     return *(T *)mem.data();
   }
+
+  // Reads an `btree_node_phys_t` and calls the constructor for BTree<KeyType>
+  template <typename KeyType>
+  BTree<KeyType> read_btree(uint64_t block_num) const;
 
   BlockReader(std::string filename);
   ~BlockReader();

@@ -1,7 +1,7 @@
 #include "BlockReader.hpp"
 
 // Read a block and return its raw bytes
-bytes_t BlockReader::read_block(uint64_t block_num) {
+bytes_t BlockReader::read_block(uint64_t block_num) const {
   fseek(f, block_num * BLOCK_SIZE, SEEK_SET);
   bytes_t data(BLOCK_SIZE, 0);
   fread((char *)data.data(), BLOCK_SIZE, 1, f);
@@ -26,7 +26,7 @@ BlockReader::~BlockReader() { fclose(f); }
 
 // We need to overload the `read_object` function for some types that have variable sizes.
 template <>
-checkpoint_map_phys_t BlockReader::read_object(uint64_t block_num) {
+checkpoint_map_phys_t BlockReader::read_object(uint64_t block_num) const {
   bytes_t mem = read_block(block_num);
   if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
     throw Error("block number " + std::to_string(block_num) + ", checksum verification failed while reading object");
@@ -39,7 +39,7 @@ checkpoint_map_phys_t BlockReader::read_object(uint64_t block_num) {
   return obj;
 }
 template <>
-btree_node_phys_t BlockReader::read_object(uint64_t block_num) {
+btree_node_phys_t BlockReader::read_object(uint64_t block_num) const {
   bytes_t mem = read_block(block_num);
   if (!verify_object_checksum((void *)mem.data(), BLOCK_SIZE)) {
     throw Error("block number " + std::to_string(block_num) + ", checksum verification failed while reading object");

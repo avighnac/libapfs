@@ -39,15 +39,10 @@ int verb_test(int argc, const std::vector<std::string> &argv) {
   std::cout << "Number of blocks: " << apfs.superblock.nx_block_count << '\n';
   std::cout << "Block size: " << apfs.superblock.nx_block_size << " bytes\n";
   std::cout << "Physical size: " << format_size(apfs.superblock.nx_block_count * apfs.superblock.nx_block_size) << '\n';
-
-  std::vector<oid_t> volume_oids; // Virtual
-  for (int i = 0; i < NX_MAX_FILE_SYSTEMS; ++i) {
-    oid_t oid = apfs.superblock.nx_fs_oid[i];
-    if (oid) {
-      volume_oids.push_back(oid);
-    }
+  std::cout << "Number of volumes: " << apfs.volumes.size() << '\n';
+  for (apfs_superblock_t &spblk : apfs.volumes) {
+    std::cout << "- " << spblk.apfs_volname << '\n';
   }
-  std::cout << "Number of volumes: " << volume_oids.size() << '\n';
 
   return 0;
 }

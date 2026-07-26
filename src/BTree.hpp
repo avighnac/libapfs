@@ -1,19 +1,23 @@
 #pragma once
 
+#include <BlockReader.hpp>
 #include <cassert>
+#include <limits>
 #include <type_traits>
 #include <types.hpp>
+#include <util.hpp>
 #include <vector>
-#include <BlockReader.hpp>
 
 // By the way, this is actually a B+ tree
-// KeyType should have operator< defined
+// KeyType should have operator< and numeric_limits<KeyType>::max() defined
 template <typename KeyType>
 class BTree {
   template <typename Key, typename Val>
   struct _key_value_t {
     Key key;
     Val val;
+    bool operator==(const _key_value_t &r) const = default;
+    bool operator!=(const _key_value_t &r) const = default;
   };
   using child_t = _key_value_t<KeyType, btn_index_node_val_t>;
   using key_value_t = _key_value_t<bytes_t, bytes_t>;
@@ -35,7 +39,7 @@ public:
   std::vector<key_value_t> key_values;
 
   // Empty key_value_t to return for when lower_bound/upper_bound does not find anything
-  static key_value_t SENTINEL;
+  inline static key_value_t SENTINEL;
 
   bool is_leaf() const;
   std::vector<child_t> children() const;
@@ -43,64 +47,26 @@ public:
   BTree(const btree_node_phys_t &node, const BlockReader &reader);
 
   // Finds the first key-value pair greater than or equal to `k`.
-  // `convert` should convert virtual addresses (where applicable) to physical addresses.
-  template <typename convert>
-  key_value_t lower_bound(const KeyType &k) {
-    if (k < key_values[0]) {
-      return SENTINEL;
-    }
-    // Finds the current range (last kv.key <= k)
-    int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < kv.key; }) - key_values.begin() - 1;
-    assert(0 <= idx && idx < key_values.size());
-    // Here, we just return immediately
-    if (is_leaf()) {
-      if (key_values[idx].key < k) {
-        return idx + 1 == key_values.size() ? SENTINEL : key_values[idx + 1];
-      }
-      return key_values[idx];
-    }
-    // Otherwise, we recurse
-    // Recurse current range
-    paddr_t addr = convert()((*(btn_index_node_val_t *)key_values[idx].val.data()).binv_child_oid);
-    btree_node_phys_t raw = reader.read_object<btree_node_phys_t>(addr);
-    key_value_t ret = BTree(raw, reader).lower_bound(k);
-    if (ret != SENTINEL || idx + 1 == key_values.size()) {
-      return ret;
-    }
-    // Recurse next range
-    addr = convert()((*(btn_index_node_val_t *)key_values[idx + 1].val.data()).binv_child_oid);
-    raw = reader.read_object<btree_node_phys_t>(addr);
-    return BTree(raw, reader).lower_bound(k);
-  }
+  // `Convert` should convert virtual addresses (where applicable) to physical addresses.
+  template <typename Convert>
+  key_value_t lower_bound(const KeyType &k, const Convert &convert);
 
   // Finds the first key-value pair greater than `k`.
-  // `convert` should convert virtual addresses (where applicable) to physical addresses.
-  template <typename convert>
-  key_value_t upper_bound(const KeyType &k) {
-    if (k <= key_values[0]) {
-      return SENTINEL;
-    }
-    // Finds the current range
-    int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < kv.key; }) - key_values.begin() - 1;
-    assert(0 <= idx && idx < key_values.size());
-    // Here, we just return immediately
-    if (is_leaf()) {
-      return idx + 1 == key_values.size() ? SENTINEL : key_values[idx + 1];
-    }
-    // Otherwise, we recurse
-    // Recurse current range
-    paddr_t addr = convert()(cast<btn_index_node_val_t>(key_values[idx].val).binv_child_oid);
-    btree_node_phys_t raw = reader.read_object<btree_node_phys_t>(addr);
-    key_value_t ret = BTree(raw, reader).lower_bound(k);
-    if (ret != SENTINEL || idx + 1 == key_values.size()) {
-      return ret;
-    }
-    // Recurse next range
-    addr = convert()(cast<btn_index_node_val_t>(key_values[idx + 1].val).binv_child_oid);
-    raw = reader.read_object<btree_node_phys_t>(addr);
-    return BTree(raw, reader).lower_bound(k);
-  }
+  // `Convert` should convert virtual addresses (where applicable) to physical addresses.
+  template <typename Convert>
+  key_value_t upper_bound(const KeyType &k, const Convert &convert);
+
+  // Finds the key-value pair that comes before `k` in the in-order traversal of the tree.
+  // `Convert` should convert virtual addresses (where applicable) to physical addresses.
+  template <typename Convert>
+  key_value_t prev(const KeyType &k, const Convert &convert);
 };
+
+template <typename KeyType>
+BTree<KeyType> BlockReader::read_btree(uint64_t block_num) const {
+  btree_node_phys_t raw = read_object<btree_node_phys_t>(block_num);
+  return BTree<KeyType>(raw, *this);
+}
 
 template <typename T>
 struct read_key_val_t {
@@ -177,6 +143,8 @@ std::vector<typename BTree<KeyType>::child_t> BTree<KeyType>::children() const {
 
 template <typename KeyType>
 BTree<KeyType>::BTree(const btree_node_phys_t &node, const BlockReader &reader) : node(node), reader(reader) {
+  // This should be defined for KeyType
+  SENTINEL.key = to_bytes(std::numeric_limits<KeyType>::max());
   if constexpr (std::is_same_v<KeyType, omap_key_t>) {
     if (is_leaf()) {
       parse_node<read_key_val_t<omap_key_t>, read_key_val_t<omap_val_t>>(node);
@@ -194,4 +162,85 @@ BTree<KeyType>::BTree(const btree_node_phys_t &node, const BlockReader &reader) 
     return;
   }
   throw std::runtime_error("unknown Key in BTree");
+}
+
+template <typename KeyType>
+template <typename Convert>
+BTree<KeyType>::key_value_t BTree<KeyType>::lower_bound(const KeyType &k, const Convert &convert) {
+  if (k <= cast<KeyType>(key_values[0].key)) {
+    return key_values[0];
+  }
+  // Finds the current range (last kv.key <= k)
+  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < cast<KeyType>(kv.key); }) - key_values.begin() - 1;
+  assert(0 <= idx && idx < key_values.size());
+  // Here, we just return immediately
+  if (is_leaf()) {
+    if (cast<KeyType>(key_values[idx].key) < k) {
+      return idx + 1 == key_values.size() ? SENTINEL : key_values[idx + 1];
+    }
+    return key_values[idx];
+  }
+  // Otherwise, we recurse
+  // Recurse current range
+  paddr_t addr = convert((*(btn_index_node_val_t *)key_values[idx].val.data()).binv_child_oid);
+  key_value_t ret = reader.read_btree<KeyType>(addr).lower_bound(k, convert);
+  if (ret != SENTINEL || idx + 1 == key_values.size()) {
+    return ret;
+  }
+  // Recurse next range
+  addr = convert((*(btn_index_node_val_t *)key_values[idx + 1].val.data()).binv_child_oid);
+  return reader.read_btree<KeyType>(addr).lower_bound(k, convert);
+}
+
+template <typename KeyType>
+template <typename Convert>
+BTree<KeyType>::key_value_t BTree<KeyType>::upper_bound(const KeyType &k, const Convert &convert) {
+  if (k < cast<KeyType>(key_values[0].key)) {
+    return key_values[0];
+  }
+  // Finds the current range
+  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < cast<KeyType>(kv.key); }) - key_values.begin() - 1;
+  assert(0 <= idx && idx < key_values.size());
+  // Here, we just return immediately
+  if (is_leaf()) {
+    return idx + 1 == key_values.size() ? SENTINEL : key_values[idx + 1];
+  }
+  // Otherwise, we recurse
+  // Recurse current range
+  paddr_t addr = convert(cast<btn_index_node_val_t>(key_values[idx].val).binv_child_oid);
+  key_value_t ret = reader.read_btree<KeyType>(addr).upper_bound(k, convert);
+  if (ret != SENTINEL || idx + 1 == key_values.size()) {
+    return ret;
+  }
+  // Recurse next range
+  addr = convert(cast<btn_index_node_val_t>(key_values[idx + 1].val).binv_child_oid);
+  return reader.read_btree<KeyType>(addr).upper_bound(k, convert);
+}
+
+template <typename KeyType>
+template <typename Convert>
+BTree<KeyType>::key_value_t BTree<KeyType>::prev(const KeyType &k, const Convert &convert) {
+  if (cast<KeyType>(key_values.back().key) < k) {
+    return key_values.back();
+  }
+  // Finds the current range
+  int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return k < cast<KeyType>(kv.key); }) - key_values.begin() - 1;
+  assert(0 <= idx && idx < key_values.size());
+  // Here, we just return immediately
+  if (is_leaf()) {
+    if (cast<KeyType>(key_values[idx].key) < k) {
+      return key_values[idx];
+    }
+    return idx - 1 == -1 ? SENTINEL : key_values[idx - 1];
+  }
+  // Otherwise, we recurse
+  // Recurse current range
+  paddr_t addr = convert(cast<btn_index_node_val_t>(key_values[idx].val).binv_child_oid);
+  key_value_t ret = reader.read_btree<KeyType>(addr).prev(k, convert);
+  if (ret != SENTINEL || idx - 1 == -1) {
+    return ret;
+  }
+  // Recurse previous range
+  addr = convert(cast<btn_index_node_val_t>(key_values[idx - 1].val).binv_child_oid);
+  return reader.read_btree<KeyType>(addr).prev(k, convert);
 }

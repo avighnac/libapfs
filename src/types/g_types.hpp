@@ -4,6 +4,7 @@
 
 #include "constants.hpp"
 #include "typedefs.hpp"
+#include <compare>
 #include <cstdint>
 #include <vector>
 
@@ -107,13 +108,18 @@ struct omap_phys_t {
 struct omap_key_t {
   oid_t ok_oid;
   xid_t ok_xid;
-  bool operator<(const omap_key_t &r) const {
-    if (ok_oid != r.ok_oid) {
-      return ok_oid < r.ok_oid;
-    }
-    return ok_xid < r.ok_xid;
+  auto operator<=>(const omap_key_t &) const = default;
+  bool operator==(const omap_key_t &) const = default;
+};
+namespace std {
+template <>
+struct numeric_limits<omap_key_t> {
+  static constexpr bool is_specialized = true;
+  static constexpr omap_key_t max() noexcept {
+    return {numeric_limits<oid_t>::max(), numeric_limits<xid_t>::max()};
   }
 };
+} // namespace std
 
 // A value in the object map.
 struct omap_val_t {
