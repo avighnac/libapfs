@@ -1,35 +1,31 @@
+#include <Apfs.hpp>
 #include <Error.hpp>
 #include <checksum.hpp>
 #include <iostream>
 #include <string>
 #include <types.hpp>
 #include <vector>
+#include <verb.hpp>
 #include <util.hpp>
 
-std::vector<std::string> verbs = {"info"};
-std::vector<std::string> descriptions = {"prints information about the container"};
+int _main(int argc, char **argv);
 
 void print_help() {
   std::cout << color::white("Usage") << '\n';
   std::cout << color::dim("  apfs <verb> <filename>") << "\n\n";
 
   std::cout << color::white("Verbs") << '\n';
-  std::cout << color::dim("  └─ ") << color::bold("info") << "  Prints information about the container\n";
+  for (auto &verb : verbs()) {
+    std::cout << color::dim("  └─ ") << color::bold(verb->name) << "  " << verb->description << '\n';
+  }
 }
 
 void print_error(const std::string &msg) {
   std::cout << color::red("error: ") << msg << '\n';
 }
 
-int _main(int argc, const std::vector<std::string> &argv);
-int verb_info(int argc, const std::vector<std::string> &argv);
-
-int main(int argc, char **_argv) {
+int main(int argc, char **argv) {
   // Copy over command line arguments
-  std::vector<std::string> argv(argc);
-  for (int i = 0; i < argc; ++i) {
-    argv[i] = _argv[i];
-  }
   try {
     return _main(argc, argv);
   } catch (const Error &e) {
@@ -38,18 +34,25 @@ int main(int argc, char **_argv) {
   }
 }
 
-int _main(int argc, const std::vector<std::string> &argv) {
+int _main(int argc, char **_argv) {
   if (argc == 1) {
     print_help();
     return 0;
   }
-  if (argc != 3) {
-    throw Error("insufficient (or too many) arguments passed");
+  if (argc < 3) {
+    throw Error("insufficient arguments passed");
   }
 
-  if (argv[1] == "info") {
-    return verb_info(argc, argv);
-  } else {
-    throw Error("no matching verb");
+  for (auto &verb : verbs()) {
+    if (_argv[1] == verb->name) {
+      Apfs apfs(_argv[2]);
+      std::vector<std::string> argv(argc - 2);
+      for (int i = 2; i < argc; ++i) {
+        argv[i] = _argv[i];
+      }
+      return verb->handler(apfs, argv);
+    }
   }
+
+  throw Error("no matching verb");
 }
