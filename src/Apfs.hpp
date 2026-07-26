@@ -7,7 +7,7 @@
 struct Apfs {
   BlockReader reader;
   nx_superblock_t superblock;
-  std::vector<container_t> containers;
+  container_t container;
   std::vector<apfs_superblock_t> volumes;
 
   Apfs(const std::string &filename);

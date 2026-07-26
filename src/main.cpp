@@ -4,8 +4,9 @@
 #include <string>
 #include <types.hpp>
 #include <vector>
+#include <util.hpp>
 
-std::vector<std::string> verbs = {"test"};
+std::vector<std::string> verbs = {"info"};
 std::vector<std::string> descriptions = {"prints information about the container"};
 
 void print_help() {
@@ -16,14 +17,12 @@ void print_help() {
   }
 }
 
-std::string red(const std::string &s) { return "\033[1;31m" + s + "\033[0m"; }
-
 void print_error(const std::string &msg) {
-  std::cout << red("error: ") << msg << '\n';
+  std::cout << color::red("error: ") << msg << '\n';
 }
 
 int _main(int argc, const std::vector<std::string> &argv);
-int verb_test(int argc, const std::vector<std::string> &argv);
+int verb_info(int argc, const std::vector<std::string> &argv);
 
 int main(int argc, char **_argv) {
   // Copy over command line arguments
@@ -45,11 +44,11 @@ int _main(int argc, const std::vector<std::string> &argv) {
     return 0;
   }
   if (argc != 3) {
-    throw Error("insufficient arguments passed");
+    throw Error("insufficient (or too many) arguments passed");
   }
 
-  if (argv[1] == "test") {
-    return verb_test(argc, argv);
+  if (argv[1] == "info") {
+    return verb_info(argc, argv);
   } else {
     throw Error("no matching verb");
   }

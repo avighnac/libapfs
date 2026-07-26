@@ -14,6 +14,7 @@ Apfs::Apfs(const std::string &filename) : reader(filename) {
   }
 
   // Now read each container superblock
+  std::vector<container_t> containers;
   for (int i = 0; i < superblock.nx_xp_desc_blocks; ++i) {
     bytes_t data = reader.read_block(superblock.nx_xp_desc_base + i);
     // Filter by superblocks, skipping checkpoint mappings
@@ -65,7 +66,7 @@ Apfs::Apfs(const std::string &filename) : reader(filename) {
   std::sort(containers.rbegin(), containers.rend());
 
   // Pick the one with the maximum transaction identifier
-  container_t container = *std::max_element(containers.begin(), containers.end());
+  container = *std::max_element(containers.begin(), containers.end());
   // Load object map
   omap_phys_t omap = reader.read_object<omap_phys_t>(container.block.nx_omap_oid);
   if ((omap.om_tree_type & OBJ_STORAGETYPE_MASK) != OBJ_PHYSICAL) {

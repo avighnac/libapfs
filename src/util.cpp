@@ -1,7 +1,7 @@
 #include "util.hpp"
 
-#include <iostream>
 #include <cassert>
+#include <iostream>
 
 // From https://jtsylve.blog/post/2022/12/15/APFS-FSTrees
 // For some reason the actual docs don't seem to mention the hash comparasion in `APFS_TYPE_DIR_REC`?
@@ -38,3 +38,13 @@ bool compare_j_key_t(const bytes_t &_l, const bytes_t &_r) {
 
   return false;
 }
+
+std::string color::red(const std::string &s) { return "\033[1;31m" + s + "\033[0m"; }
+std::string color::green(const std::string &s) { return "\033[1;32m" + s + "\033[0m"; }
+std::string color::yellow(const std::string &s) { return "\033[1;33m" + s + "\033[0m"; }
+std::string color::blue(const std::string &s) { return "\033[1;34m" + s + "\033[0m"; }
+std::string color::magenta(const std::string &s) { return "\033[1;35m" + s + "\033[0m"; }
+std::string color::cyan(const std::string &s) { return "\033[1;36m" + s + "\033[0m"; }
+std::string color::white(const std::string &s) { return "\033[1;37m" + s + "\033[0m"; }
+std::string color::bold(const std::string &s) { return "\033[1m" + s + "\033[0m"; }
+std::string color::dim(const std::string &s) { return "\033[2m" + s + "\033[0m"; }
