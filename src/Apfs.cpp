@@ -18,10 +18,10 @@ Apfs::Apfs(const std::string &filename) : reader(filename) {
   for (int i = 0; i < superblock.nx_xp_desc_blocks; ++i) {
     bytes_t data = reader.read_block(superblock.nx_xp_desc_base + i);
     // Filter by superblocks, skipping checkpoint mappings
-    if (((*(obj_phys_t *)data.data()).o_type & OBJECT_TYPE_MASK) == OBJECT_TYPE_NX_SUPERBLOCK) {
+    if ((cast<obj_phys_t>(data).o_type & OBJECT_TYPE_MASK) == OBJECT_TYPE_NX_SUPERBLOCK) {
       // Read the superblock in the checkpoint area
       container_t container;
-      container.block = *(nx_superblock_t *)data.data();
+      container.block = cast<nx_superblock_t>(data);
 
       // Only process if the checksum of the superblock is valid.
       if (!verify_object_checksum((void *)data.data(), superblock.nx_block_size)) {

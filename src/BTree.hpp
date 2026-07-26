@@ -136,8 +136,8 @@ std::vector<typename BTree<KeyType>::child_t> BTree<KeyType>::children() const {
   assert(!is_leaf());
   std::vector<child_t> ret(key_values.size());
   for (int i = 0; i < int(key_values.size()); ++i) {
-    ret[i].key = *(KeyType *)key_values[i].key.data();
-    ret[i].val = *(btn_index_node_val_t *)key_values[i].val.data();
+    ret[i].key = cast<KeyType>(key_values[i].key);
+    ret[i].val = cast<btn_index_node_val_t>(key_values[i].data());
   }
   return ret;
 }
@@ -183,13 +183,13 @@ BTree<KeyType>::key_value_t BTree<KeyType>::lower_bound(const KeyType &k, const 
   }
   // Otherwise, we recurse
   // Recurse current range
-  paddr_t addr = convert((*(btn_index_node_val_t *)key_values[idx].val.data()).binv_child_oid);
+  paddr_t addr = convert(cast<btn_index_node_val_t>(key_values[idx].val).binv_child_oid);
   key_value_t ret = reader.read_btree<KeyType>(addr).lower_bound(k, convert);
   if (ret != SENTINEL || idx + 1 == key_values.size()) {
     return ret;
   }
   // Recurse next range
-  addr = convert((*(btn_index_node_val_t *)key_values[idx + 1].val.data()).binv_child_oid);
+  addr = convert(cast<btn_index_node_val_t>(key_values[idx + 1].val).binv_child_oid);
   return reader.read_btree<KeyType>(addr).lower_bound(k, convert);
 }
 
