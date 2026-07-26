@@ -19,9 +19,10 @@ Usage
 Verbs
   └─ cat   Prints the contents of the given file
   └─ info  Prints information about the container
+  └─ ls    List the contents of a directory
 ```
 
-`ls` is unfortunately not supported (yet), but `cat` works on exact paths (although it is very inefficient and is right now just a test version).
+`ls` and `cat` work on exact paths although they are very inefficient and are right now just test versions.
 
 # Examples
 
@@ -29,6 +30,12 @@ You can copy files over like this:
 
 ```bash
 ./apfs cat /dev/rdisk8 USB /path/to/file.zip > file.zip
+```
+
+And you can list files like this:
+
+```bash
+./apfs ls /dev/rdisk8 USB /path/to/dir
 ```
 
 Container information currently looks like this:
