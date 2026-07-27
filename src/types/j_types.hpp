@@ -278,14 +278,14 @@ struct xf_blob_t {
   uint16_t xf_num_exts;
   uint16_t xf_used_data;
   uint8_t xf_data[];
-};
+} __attribute__((packed));
 
 // An extended fieldʼs metadata.
-struct x_field {
+struct x_field_t {
   uint8_t x_type;
   uint8_t x_flags;
   uint16_t x_size;
-};
+} __attribute__((packed));
 
 // The key half of a sibling-link record.
 struct j_sibling_key_t : j_key_t {
