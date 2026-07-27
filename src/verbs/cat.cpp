@@ -15,7 +15,40 @@ struct CatVerb : Verb {
     uint64_t num;
     uint64_t private_id;
     uint64_t type;
+    uint64_t size;
   };
+
+  uint64_t get_inode_size(j_inode_val_t inode) {
+    char *raw = inode.xfields.data();
+    xf_blob_t blob = *(xf_blob_t *)raw;
+
+    auto advance = [&raw, &inode](size_t cnt) {
+      raw += cnt;
+      int mod = ((raw - (inode.xfields.data() + sizeof(xf_blob_t))) % 8);
+      if (mod)
+        raw += 8 - mod;
+    };
+
+    raw += sizeof(xf_blob_t);
+
+    std::vector<x_field_t> fields(blob.xf_num_exts);
+    for (x_field_t &field : fields) {
+      field = *(x_field_t *)raw;
+      raw += sizeof(x_field_t);
+    }
+
+    advance(0);
+    for (x_field_t &field : fields) {
+      if (field.x_type != INO_EXT_TYPE_DSTREAM) {
+        advance(field.x_size);
+        // raw += field.x_size;
+        continue;
+      }
+      j_dstream_t dstream = *(j_dstream_t *)raw;
+      return dstream.size;
+    }
+    return 0;
+  }
 
   // ./apfs cat diskname volname filename
   int handler(Apfs &apfs, const std::vector<std::string> &args) override {
@@ -77,10 +110,10 @@ struct CatVerb : Verb {
       find_drecs(root_tree);
 
       if (inodes.empty()) {
-        return Inode{0, 0, 0};
+        return Inode{0, 0, 0, 0};
       }
 
-      uint64_t inode_num = 0, private_id = 0, file_type = 0;
+      uint64_t inode_num = 0, private_id = 0, file_type = 0, size = 0;
 
       std::function<void(const jtype &)> find_private_id = [&](const jtype &node) {
         if (node.is_leaf()) {
@@ -90,6 +123,7 @@ struct CatVerb : Verb {
             if (key_type == APFS_TYPE_INODE && cast<j_inode_val_t>(v).parent_id == parent_id) {
               auto it = inodes.lower_bound({key_id, 0});
               if (it != inodes.end() && it->first == key_id) {
+                size = get_inode_size(cast<j_inode_val_t>(v));
                 inode_num = key_id;
                 private_id = cast<j_inode_val_t>(v).private_id;
                 file_type = it->second;
@@ -109,28 +143,29 @@ struct CatVerb : Verb {
 
       find_private_id(root_tree);
 
-      return Inode{inode_num, private_id, file_type & DREC_TYPE_MASK};
+      return Inode{inode_num, private_id, file_type & DREC_TYPE_MASK, size};
     };
 
-    uint64_t private_id, parent_id = ROOT_DIR_INO_NUM, file_type;
+    uint64_t private_id, parent_id = ROOT_DIR_INO_NUM, file_type, file_size;
 
     for (const auto _name : std::views::split(std::string_view(filename), '/')) {
       std::string name{std::string_view(_name)};
       if (name.empty()) continue;
-      auto [curr_inum, curr_pid, type] = get_inode(name, parent_id);
+      auto [curr_inum, curr_pid, type, size] = get_inode(name, parent_id);
       if (!curr_inum) {
         throw Error("file " + filename + " does not exist");
       }
       private_id = curr_pid;
       parent_id = curr_inum;
       file_type = type;
+      file_size = size;
     }
 
     if (file_type == DT_DIR) {
       throw Error(filename + " is a directory");
     }
 
-    std::string contents;
+    std::string contents(file_size, 0);
 
     std::function<void(const jtype &)> find_externs = [&](const jtype &node) {
       if (node.is_leaf()) {
@@ -140,14 +175,11 @@ struct CatVerb : Verb {
           if (key_type == APFS_TYPE_FILE_EXTENT && key_id == private_id) {
             uint64_t addr = cast<j_file_extent_key_t>(k).logical_addr;
             uint64_t len = cast<j_file_extent_val_t>(v).len_and_flags & J_FILE_EXTENT_LEN_MASK;
-            if (contents.size() < addr + len)
-              contents.resize(addr + len);
             uint64_t block_size = apfs.container.block.nx_block_size;
-            size_t num_blocks = (len + block_size - 1) / block_size;
+            size_t num_blocks = len / block_size;
             for (int i = 0; i < num_blocks; i++) {
               bytes_t block = apfs.reader.read_block(cast<j_file_extent_val_t>(v).phys_block_num + i);
-              memcpy(contents.data() + addr + (block_size * i), block.data(), std::min(len, block_size));
-              len -= block_size;
+              memcpy(contents.data() + addr + (block_size * i), block.data(), std::min(block_size, contents.size() - (addr + (block_size * i))));
             }
             break;
           }
