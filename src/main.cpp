@@ -10,7 +10,7 @@
 #include <vector>
 #include <verb.hpp>
 
-int _main(int argc, char **argv);
+int _main(int argc, const std::vector<std::string> &_argv);
 
 void print_error(const std::string &msg) {
   std::cout << color::red("error: ") << msg << '\n';
@@ -40,10 +40,15 @@ std::map<std::string, std::string> parse_options(const std::vector<std::string> 
   return map;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **_argv) {
   // Copy over command line arguments
+  std::vector<std::string> argv(argc);
+  for (int i = 0; i < argc; ++i) {
+    argv[i] = _argv[i];
+  }
   try {
     return _main(argc, argv);
+    // return _main(3, {"./apfs", "fastcat", "/dev/rdisk5"});
   } catch (const Error &e) {
     print_error(e.what());
     return 1;
@@ -55,7 +60,7 @@ struct HelpVerb : Verb {
   int handler(std::map<std::string, std::string> options) override;
 };
 
-int _main(int argc, char **_argv) {
+int _main(int argc, const std::vector<std::string> &_argv) {
   if (argc == 1) {
     HelpVerb help;
     help.handler({});

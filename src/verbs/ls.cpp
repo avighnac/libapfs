@@ -1,190 +1,107 @@
-// This is a purposefully temporary inefficient (but working) implementation for testing purposes
-
 #include <BTree.hpp>
-#include <GuidTable.hpp>
-#include <functional>
+#include <VolumeVerb.hpp>
+#include <crc32c.hpp>
 #include <iostream>
-#include <ranges>
-#include <set>
-#include <string_view>
-#include <ApfsVerb.hpp>
+#include <types.hpp>
+#include <util.hpp>
 
-struct LSVerb : ApfsVerb {
-  LSVerb() : ApfsVerb("ls", "List the contents of a directory") {}
+struct LsVerb : VolumeVerb {
+  LsVerb() : VolumeVerb("ls", "List the contents of a directory") {}
 
-  struct Inode {
-    uint64_t num;
-    uint64_t private_id;
-    uint64_t type;
-  };
+  uint32_t drec_key_hash(const std::string &name) {
+    std::string data;
+    for (int i = 0; i < name.length(); ++i) {
+      char c = name[i];
+      c = tolower(c);
+      if (c > 0x7F) {
+        throw Error("name is not ASCII");
+      }
+      data.append(to_bytes(uint32_t(c)));
+    }
+    uint32_t hash_computed = crc32c.hash((const uint8_t *)data.data(), data.length());
+    hash_computed ^= 0xFFFFFFFFu;
+    hash_computed &= (1 << 22) - 1;
+    return hash_computed;
+  }
 
-  // ./apfs ls diskname --volume --path
-  int apfs_handler(Apfs &apfs, std::map<std::string, std::string> options) override {
+  int volume_handler(apfs_superblock_t &volume, BlockReader &reader, std::map<std::string, std::string> options) override {
     if (!options.contains("path")) {
       throw Error("missing \"path\" parameter");
     }
 
-    std::string volname;
-    if (!options.contains("volume")) {
-      if (apfs.volumes.size() > 1) {
-        throw Error("missing \"volume\" parameter");
-      } else {
-        volname = (char *)apfs.volumes[0].apfs_volname;
-      }
-    } else {
-      volname = options["volume"];
-    }
-    std::string dirname = options["path"];
-    apfs_superblock_t volume;
-    bool found = false;
-    for (auto &curr_vol : apfs.volumes) {
-      if ((char *)curr_vol.apfs_volname == volname) {
-        volume = curr_vol;
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      throw Error("volume \"" + volname + "\" not found");
-    }
+    // Read the object map, and construct the BTree
+    omap_phys_t omap = reader.read_object<omap_phys_t>(volume.apfs_omap_oid);
+    BTree<omap_key_t> object_map = reader.read_btree<omap_key_t>(omap.om_tree_oid);
 
-    omap_phys_t omap = apfs.reader.read_object<omap_phys_t>(volume.apfs_omap_oid);
-    BTree<omap_key_t> omap_tree = apfs.reader.read_btree<omap_key_t>(omap.om_tree_oid);
-    auto convert_identity = [&](const oid_t &oid) { return paddr_t(oid); };
-
-    auto get_paddr = [&](oid_t oid) {
-      omap_key_t key{oid, volume.apfs_o.o_xid};
-      auto kv = omap_tree.upper_bound(key, convert_identity);
-      kv = omap_tree.prev(cast<omap_key_t>(kv.key), convert_identity);
-      if (kv == omap_tree.SENTINEL) {
-        throw Error("invalid OID: " + std::to_string(oid));
+    auto identity = [&](const oid_t &oid) { return paddr_t(oid); };
+    // Virtual object => physical address by reading the object_map BTree
+    auto get_paddr = [&](const oid_t &oid) {
+      omap_key_t key = {oid, volume.apfs_o.o_xid};
+      auto kv = object_map.upper_bound(to_bytes(key), identity);
+      kv = object_map.prev(kv.key, identity);
+      if (cast<omap_key_t>(kv.key).ok_oid != oid) {
+        throw Error("could not valid match for (" + std::to_string(oid) + ", " + std::to_string(key.ok_xid) + ") in the volume object map");
       }
-      assert(cast<omap_key_t>(kv.key).ok_oid == oid);
       return cast<omap_val_t>(kv.val).ov_paddr;
     };
 
-    auto root_tree = apfs.reader.read_btree<j_key_t>(get_paddr(volume.apfs_root_tree_oid), compare_j_key_t);
-    using jtype = BTree<j_key_t, bool (*)(const bytes_t &_l, const bytes_t &_r)>;
+    // We can now access the filesystem tree
+    using btree_t = BTree<j_key_t, decltype(&compare_j_key_t)>;
+    btree_t filesystem = reader.read_btree<j_key_t>(get_paddr(volume.apfs_root_tree_oid), compare_j_key_t);
 
-    auto get_inode = [&](std::string name, uint64_t parent_id) {
-      std::set<std::pair<uint64_t, uint64_t>> inodes;
+    // This works based on the assumption that:
+    // the object id of a `drec_hashed_key_t` is equal to the inode's object id of the parent directory
 
-      std::function<void(const jtype &)> find_drecs = [&](const jtype &node) {
-        if (node.is_leaf()) {
-          for (auto &[k, v] : node.key_values) {
-            uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-            if (key_type == APFS_TYPE_DIR_REC && cast<j_drec_hashed_key_t>(k).name == name) {
-              inodes.insert({cast<j_drec_val_t>(v).file_id, cast<j_drec_val_t>(v).flags});
-            }
-          }
-          return;
+    std::string path = options["path"];
+    std::vector<std::string> dirs;
+    std::string dir;
+    for (char &c : path) {
+      if (c == '/') {
+        if (!dir.empty()) {
+          dirs.push_back(dir);
+          dir.clear();
         }
-        for (auto &[k, v] : node.children()) {
-          find_drecs(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
-        }
-      };
-
-      find_drecs(root_tree);
-
-      if (inodes.empty()) {
-        return Inode{0, 0, 0};
-      }
-
-      uint64_t inode_num = 0, private_id = 0, file_type = 0;
-
-      std::function<void(const jtype &)> find_private_id = [&](const jtype &node) {
-        if (node.is_leaf()) {
-          for (auto &[k, v] : node.key_values) {
-            uint64_t key_id = cast<j_key_t>(k).obj_id_and_type & OBJ_ID_MASK;
-            uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-            if (key_type == APFS_TYPE_INODE && cast<j_inode_val_t>(v).parent_id == parent_id) {
-              auto it = inodes.lower_bound({key_id, 0});
-              if (it != inodes.end() && it->first == key_id) {
-                inode_num = key_id;
-                private_id = cast<j_inode_val_t>(v).private_id;
-                file_type = it->second;
-                break;
-              }
-            }
-          }
-          return;
-        }
-        for (auto &[k, v] : node.children()) {
-          find_private_id(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
-          if (private_id) {
-            break;
-          }
-        }
-      };
-
-      find_private_id(root_tree);
-
-      return Inode{inode_num, private_id, file_type & DREC_TYPE_MASK};
-    };
-
-    uint64_t private_id, parent_id = ROOT_DIR_INO_NUM, file_type = DT_DIR;
-
-    for (const auto _name : std::views::split(std::string_view(dirname), '/')) {
-      std::string name{std::string_view(_name)};
-      if (name.empty())
         continue;
-      auto [curr_inum, curr_pid, type] = get_inode(name, parent_id);
-      if (!curr_inum) {
-        throw Error("directory " + dirname + " does not exist");
       }
-      private_id = curr_pid;
-      parent_id = curr_inum;
-      file_type = type;
+      dir.push_back(c);
+    }
+    if (!dir.empty()) {
+      dirs.push_back(dir);
     }
 
-    if (file_type != DT_DIR) {
-      throw Error(dirname + " is not a directory");
+    // Find the right directory
+    uint64_t cur_dir_obj_id = 2; // root object id
+    for (std::string &dir : dirs) {
+      j_drec_hashed_key_t key;
+      key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << 60ULL) | cur_dir_obj_id;
+      key.name = dir;
+      key.name_len_and_hash = (drec_key_hash(key.name) << 10) | (key.name.length() + 1);
+
+      auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
+      assert(kv.key == to_bytes(key));
+
+      cur_dir_obj_id = cast<j_drec_val_t>(kv.val).file_id;
     }
 
-    std::set<uint64_t> inodes;
+    // Now print the contents
+    j_drec_hashed_key_t key;
+    key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << 60ULL) | cur_dir_obj_id;
+    key.name_len_and_hash = 0;
+    key.name = "";
 
-    std::function<void(const jtype &)> find_children = [&](const jtype &node) {
-      if (node.is_leaf()) {
-        for (auto &[k, v] : node.key_values) {
-          uint64_t key_id = cast<j_key_t>(k).obj_id_and_type & OBJ_ID_MASK;
-          uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-          if (key_type == APFS_TYPE_INODE && cast<j_inode_val_t>(v).parent_id == parent_id) {
-            inodes.insert(key_id);
-          }
-        }
-        return;
+    auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
+    while ((cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_DIR_REC) {
+      std::string name = cast<j_drec_hashed_key_t>(kv.key).name;
+      if (cast<j_drec_val_t>(kv.val).flags & DT_DIR) {
+        std::cout << color::green(name) << '\n';
+      } else {
+        std::cout << name << '\n';
       }
-      for (auto &[k, v] : node.children()) {
-        find_children(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
-      }
-    };
-
-    find_children(root_tree);
-
-    std::function<void(const jtype &)> find_drecs = [&](const jtype &node) {
-      if (node.is_leaf()) {
-        for (auto &[k, v] : node.key_values) {
-          uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-          if (key_type == APFS_TYPE_DIR_REC && inodes.contains(cast<j_drec_val_t>(v).file_id)) {
-            uint64_t dir_type = cast<j_drec_val_t>(v).flags & DREC_TYPE_MASK;
-            if (dir_type == DT_DIR) {
-              std::cout << color::green(cast<j_drec_hashed_key_t>(k).name) << std::endl;
-            } else {
-              std::cout << cast<j_drec_hashed_key_t>(k).name << std::endl;
-            }
-          }
-        }
-        return;
-      }
-      for (auto &[k, v] : node.children()) {
-        find_drecs(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
-      }
-    };
-
-    find_drecs(root_tree);
+      kv = filesystem.upper_bound(kv.key, get_paddr);
+    }
 
     return 0;
   }
 };
 
-REGISTER_VERB(LSVerb);
+REGISTER_VERB(LsVerb);

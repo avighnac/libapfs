@@ -1,5 +1,6 @@
 // This is a purposefully temporary inefficient (but working) implementation for testing purposes
 
+#include <VolumeVerb.hpp>
 #include <BTree.hpp>
 #include <GuidTable.hpp>
 #include <functional>
@@ -7,10 +8,9 @@
 #include <ranges>
 #include <set>
 #include <string_view>
-#include <ApfsVerb.hpp>
 
-struct CatVerb : ApfsVerb {
-  CatVerb() : ApfsVerb("cat", "Prints the contents of a given file") {}
+struct CatVerb : VolumeVerb {
+  CatVerb() : VolumeVerb("cat", "Prints the contents of a given file") {}
 
   struct Inode {
     uint64_t num;
@@ -52,43 +52,20 @@ struct CatVerb : ApfsVerb {
   }
 
   // ./apfs cat diskname --volume --path
-  int apfs_handler(Apfs &apfs, std::map<std::string, std::string> options) override {
+  int volume_handler(apfs_superblock_t &volume, BlockReader &reader, std::map<std::string, std::string> options) override {
     if (!options.contains("path")) {
       throw Error("missing \"path\" parameter");
     }
-
-    std::string volname;
-    if (!options.contains("volume")) {
-      if (apfs.volumes.size() > 1) {
-        throw Error("missing \"volume\" parameter");
-      } else {
-        volname = (char *)apfs.volumes[0].apfs_volname;
-      }
-    } else {
-      volname = options["volume"];
-    }
     std::string filename = options["path"];
-    apfs_superblock_t volume;
-    bool found = false;
-    for (auto &curr_vol : apfs.volumes) {
-      if ((char *)curr_vol.apfs_volname == volname) {
-        volume = curr_vol;
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      throw Error("volume \"" + volname + "\" not found");
-    }
 
-    omap_phys_t omap = apfs.reader.read_object<omap_phys_t>(volume.apfs_omap_oid);
-    BTree<omap_key_t> omap_tree = apfs.reader.read_btree<omap_key_t>(omap.om_tree_oid);
+    omap_phys_t omap = reader.read_object<omap_phys_t>(volume.apfs_omap_oid);
+    BTree<omap_key_t> omap_tree = reader.read_btree<omap_key_t>(omap.om_tree_oid);
     auto convert_identity = [&](const oid_t &oid) { return paddr_t(oid); };
 
     auto get_paddr = [&](oid_t oid) {
       omap_key_t key{oid, volume.apfs_o.o_xid};
-      auto kv = omap_tree.upper_bound(key, convert_identity);
-      kv = omap_tree.prev(cast<omap_key_t>(kv.key), convert_identity);
+      auto kv = omap_tree.upper_bound(to_bytes(key), convert_identity);
+      kv = omap_tree.prev(kv.key, convert_identity);
       if (kv == omap_tree.SENTINEL) {
         throw Error("invalid OID: " + std::to_string(oid));
       }
@@ -96,7 +73,7 @@ struct CatVerb : ApfsVerb {
       return cast<omap_val_t>(kv.val).ov_paddr;
     };
 
-    auto root_tree = apfs.reader.read_btree<j_key_t>(get_paddr(volume.apfs_root_tree_oid), compare_j_key_t);
+    auto root_tree = reader.read_btree<j_key_t>(get_paddr(volume.apfs_root_tree_oid), compare_j_key_t);
     using jtype = BTree<j_key_t, bool (*)(const bytes_t &_l, const bytes_t &_r)>;
 
     auto get_inode = [&](std::string name, uint64_t parent_id) {
@@ -113,7 +90,7 @@ struct CatVerb : ApfsVerb {
           return;
         }
         for (auto &[k, v] : node.children()) {
-          find_drecs(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
+          find_drecs(reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
         }
       };
 
@@ -144,7 +121,7 @@ struct CatVerb : ApfsVerb {
           return;
         }
         for (auto &[k, v] : node.children()) {
-          find_private_id(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
+          find_private_id(reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
           if (private_id) {
             break;
           }
@@ -186,10 +163,10 @@ struct CatVerb : ApfsVerb {
           if (key_type == APFS_TYPE_FILE_EXTENT && key_id == private_id) {
             uint64_t addr = cast<j_file_extent_key_t>(k).logical_addr;
             uint64_t len = cast<j_file_extent_val_t>(v).len_and_flags & J_FILE_EXTENT_LEN_MASK;
-            uint64_t block_size = apfs.container.block.nx_block_size;
+            uint64_t block_size = nx_block_size;
             size_t num_blocks = len / block_size;
             for (int i = 0; i < num_blocks; i++) {
-              bytes_t block = apfs.reader.read_block(cast<j_file_extent_val_t>(v).phys_block_num + i);
+              bytes_t block = reader.read_block(cast<j_file_extent_val_t>(v).phys_block_num + i);
               memcpy(contents.data() + addr + (block_size * i), block.data(), std::min(block_size, contents.size() - (addr + (block_size * i))));
             }
             break;
@@ -198,7 +175,7 @@ struct CatVerb : ApfsVerb {
         return;
       }
       for (auto &[k, v] : node.children())
-        find_externs(apfs.reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
+        find_externs(reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
     };
 
     find_externs(root_tree);

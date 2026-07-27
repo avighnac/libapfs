@@ -84,8 +84,8 @@ Apfs::Apfs(const std::string &filename, uint64_t offset) : reader(filename, true
     omap_key_t key;
     key.ok_oid = v_oid;
     key.ok_xid = container.block.nx_o.o_xid;
-    auto kv = virtual_obj_tree.upper_bound(key, convert_identity);
-    kv = virtual_obj_tree.prev(cast<omap_key_t>(kv.key), convert_identity);
+    auto kv = virtual_obj_tree.upper_bound(to_bytes(key), convert_identity);
+    kv = virtual_obj_tree.prev(kv.key, convert_identity);
     if (kv == BTree<omap_key_t>::SENTINEL || cast<omap_key_t>(kv.key).ok_oid != v_oid) {
       throw Error("omap_key for oid=" + std::to_string(v_oid) + " and xid<=" + std::to_string(key.ok_xid) + " not found in object map");
     }
