@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 }
 
 struct HelpVerb : Verb {
-  HelpVerb();
+  HelpVerb() : Verb("help", "Prints this message") {}
   int handler(std::map<std::string, std::string> options) override;
 };
 
