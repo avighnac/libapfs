@@ -1,4 +1,5 @@
 #include <Apfs.hpp>
+#include <ApfsVerb.hpp>
 #include <BlockReader.hpp>
 #include <GuidTable.hpp>
 #include <algorithm>
@@ -9,7 +10,6 @@
 #include <types.hpp>
 #include <util.hpp>
 #include <vector>
-#include <verb.hpp>
 
 // Given a number of bytes, returns a formatted string
 // in the appropriate higher unit
@@ -37,38 +37,10 @@ static std::string format_size(uint64_t bytes) {
   return oss.str();
 }
 
-struct InfoVerb : Verb {
-  InfoVerb() : Verb("info", "Prints information about a " + color::white("partition on a disk")) {}
+struct InfoVerb : ApfsVerb {
+  InfoVerb() : ApfsVerb("info", "Prints information about a " + color::white("partition on a disk")) {}
 
-  int handler(std::map<std::string, std::string> options) override {
-    if (!options.contains("_default")) {
-      throw Error("missing disk file");
-    }
-    std::string diskname = options["_default"];
-    auto get_apfs = [&]() {
-      if (is_apfs_partition(diskname)) {
-        return Apfs(diskname);
-      }
-      GuidTable gpt(diskname);
-      std::string guid;
-      if (options.contains("part")) {
-        guid = options["part"];
-      } else {
-        std::vector<EFI_PARTITION_ENTRY> apfs_partitions;
-        for (EFI_PARTITION_ENTRY &part : gpt.partitions) {
-          if (to_string(part.PartitionTypeGUID) == "APFS") {
-            apfs_partitions.push_back(part);
-          }
-        }
-        if (apfs_partitions.size() > 1) {
-          throw Error("missing \"part\" parameter");
-        }
-        guid = to_string(gpt.partitions[0].UniquePartitionGUID);
-      }
-      return gpt.read_partition(guid);
-    };
-    Apfs apfs = get_apfs();
-
+  int apfs_handler(Apfs &apfs, std::map<std::string, std::string> options) override {
     size_t max_label_len = std::max({
         std::string("Number of blocks").size(),
         std::string("Block size").size(),
