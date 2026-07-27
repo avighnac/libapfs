@@ -37,9 +37,14 @@ static std::string format_size(uint64_t bytes) {
 }
 
 struct InfoVerb : Verb {
-  InfoVerb() : Verb("info", "Prints information about the container") {}
+  InfoVerb() : Verb("info", "Prints information about a " + color::white("partition on a disk")) {}
 
-  int handler(Apfs &apfs, const std::vector<std::string> &args) override {
+  int handler(std::map<std::string, std::string> options) override {
+    if (!options.contains("_default")) {
+      throw Error("missing disk file");
+    }
+    Apfs apfs(options["_default"]);
+    
     size_t max_label_len = std::max({
         std::string("Number of blocks").size(),
         std::string("Block size").size(),

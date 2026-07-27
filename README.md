@@ -14,12 +14,16 @@ Most custom types have their own `.hpp` and `.cpp` files, for example, `BlockRea
 
 ```
 Usage
-  apfs <verb> <filename>
+  apfs <verb> --option1 <option1> --option2 <option2> <filename>
 
 Verbs
-  └─ cat   Prints the contents of the given file
-  └─ info  Prints information about the container
-  └─ ls    List the contents of a directory
+├─ cat       Prints the contents of a given file
+├─ diskinfo  Prints information about a disk
+├─ help      Prints this message
+├─ info      Prints information about a partition on a disk
+└─ ls        List the contents of a directory
+
+To find out which options are required for a given verb, run apfs help <verb>.
 ```
 
 `ls` and `cat` work on exact paths although they are very inefficient and are right now just test versions.
@@ -29,13 +33,13 @@ Verbs
 You can copy files over like this:
 
 ```bash
-./apfs cat /dev/rdisk8 USB /path/to/file.zip > file.zip
+./apfs cat /dev/rdisk8 --path /path/to/file.zip > file.zip
 ```
 
 And you can list files like this:
 
 ```bash
-./apfs ls /dev/rdisk8 USB /path/to/dir
+./apfs ls /dev/rdisk8 --path /path/to/dir
 ```
 
 Container information currently looks like this:

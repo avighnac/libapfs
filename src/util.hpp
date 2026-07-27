@@ -78,3 +78,5 @@ bytes_t to_bytes(const T &x) {
     return b_to_bytes<T>(x);
   }
 }
+
+std::string to_string(const efi_guid_t &guid);

@@ -2,31 +2,42 @@
 #include <Error.hpp>
 #include <checksum.hpp>
 #include <iostream>
+#include <map>
+#include <set>
 #include <string>
 #include <types.hpp>
+#include <util.hpp>
 #include <vector>
 #include <verb.hpp>
-#include <util.hpp>
 
 int _main(int argc, char **argv);
 
-void print_help() {
-  std::cout << color::white("Usage") << '\n';
-  std::cout << color::dim("  apfs <verb> <filename>") << "\n\n";
-
-  size_t max_len = (*std::max_element(verbs().begin(), verbs().end(), [](auto &a, auto &b) {
-    return a->name.length() < b->name.length();
-  }))->name.length() + 2;
-
-  std::cout << color::white("Verbs") << '\n';
-  for (auto &verb : verbs()) {
-    std::cout << color::dim("  └─ ") << color::bold(verb->name)
-      << std::string(max_len - verb->name.length(), ' ') << verb->description << '\n';
-  }
-}
-
 void print_error(const std::string &msg) {
   std::cout << color::red("error: ") << msg << '\n';
+}
+
+std::map<std::string, std::string> parse_options(const std::vector<std::string> argv) {
+  std::map<std::string, std::string> map;
+
+  for (int i = 0; i < int(argv.size()); ++i) {
+    if (!argv[i].starts_with("--")) {
+      if (map.contains("_default")) {
+        throw Error("too many arguments passed");
+      }
+      map["_default"] = argv[i];
+    } else {
+      if (map.contains(argv[i].substr(2))) {
+        throw Error("option " + argv[i] + " specified more than once");
+      }
+      if (i == int(argv.size()) - 1 || argv[i + 1].starts_with("--")) {
+        throw Error("missing option: " + argv[i]);
+      }
+      map[argv[i].substr(2)] = argv[i + 1];
+      i++;
+    }
+  }
+
+  return map;
 }
 
 int main(int argc, char **argv) {
@@ -39,23 +50,25 @@ int main(int argc, char **argv) {
   }
 }
 
+struct HelpVerb : Verb {
+  HelpVerb();
+  int handler(std::map<std::string, std::string> options) override;
+};
+
 int _main(int argc, char **_argv) {
   if (argc == 1) {
-    print_help();
+    HelpVerb help;
+    help.handler({});
     return 0;
-  }
-  if (argc < 3) {
-    throw Error("insufficient arguments passed");
   }
 
   for (auto &verb : verbs()) {
     if (_argv[1] == verb->name) {
-      Apfs apfs(_argv[2]);
-      std::vector<std::string> argv(argc - 3);
-      for (int i = 3; i < argc; ++i) {
-        argv[i - 3] = _argv[i];
+      std::vector<std::string> argv(argc - 2);
+      for (int i = 2; i < argc; ++i) {
+        argv[i - 2] = _argv[i];
       }
-      return verb->handler(apfs, argv);
+      return verb->handler(parse_options(argv));
     }
   }
 

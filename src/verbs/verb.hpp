@@ -1,17 +1,18 @@
 #pragma once
 
 #include <Apfs.hpp>
-#include <string>
+#include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
 struct Verb {
   const std::string name;
   const std::string description;
 
-  Verb(std::string name, std::string description)
-    : name(std::move(name)), description(std::move(description)) {}
+  Verb(std::string name, std::string description) : name(std::move(name)), description(std::move(description)) {}
 
-  virtual int handler(Apfs &apfs, const std::vector<std::string> &args) = 0;
+  virtual int handler(std::map<std::string, std::string> options) = 0;
   virtual ~Verb() = default;
 };
 

@@ -32,6 +32,12 @@ public:
     return *(T *)mem.data();
   }
 
+  // Read any object from a given block and return it
+  template <typename T>
+  T read_struct(uint64_t block_num) const {
+    return *(T *)read_block(block_num).data();
+  };
+
   // Reads an `btree_node_phys_t` and calls the constructor for BTree<KeyType>
   // This is for when operator< is defined
   template <typename KeyType, typename Compare>
@@ -40,6 +46,8 @@ public:
   template <typename KeyType, typename Compare>
   BTree<KeyType, Compare> read_btree(uint64_t block_num, Compare lt) const;
 
-  BlockReader(std::string filename);
+  // Filename of the data stream, and whether or not we're reading from
+  // an APFS partition directly (the other option is a disk, with an MBR)
+  BlockReader(std::string filename, bool apfs = true);
   ~BlockReader();
 };

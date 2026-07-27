@@ -9,17 +9,19 @@ bytes_t BlockReader::read_block(uint64_t block_num) const {
   return data;
 }
 
-BlockReader::BlockReader(std::string filename) {
+BlockReader::BlockReader(std::string filename, bool apfs) {
   f = fopen(filename.data(), "rb");
   if (!f) {
     throw Error("could not open file " + filename + ": " + std::system_category().message(errno));
   }
 
-  // Set `BLOCK_SIZE` to be the actual block size
-  try {
-    BLOCK_SIZE = read_object<nx_superblock_t>(0).nx_block_size;
-  } catch (const Error &e) {
-    throw Error(filename + " is not the start of an APFS container");
+  if (apfs) {
+    // Set `BLOCK_SIZE` to be the actual block size
+    try {
+      BLOCK_SIZE = read_object<nx_superblock_t>(0).nx_block_size;
+    } catch (const Error &e) {
+      throw Error(filename + " is not the start of an APFS container");
+    }
   }
 }
 

@@ -1,8 +1,8 @@
 // This is a purposefully temporary inefficient (but working) implementation for testing purposes
 
-#include <iostream>
 #include <BTree.hpp>
 #include <functional>
+#include <iostream>
 #include <ranges>
 #include <set>
 #include <string_view>
@@ -17,13 +17,28 @@ struct LSVerb : Verb {
     uint64_t type;
   };
 
-  // ./apfs ls diskname volname dirname
-  int handler(Apfs &apfs, const std::vector<std::string> &args) override {
-    if (args.size() != 2) {
-      throw Error("insufficient (or too many) arguments passed");
+  // ./apfs ls diskname --volume --path
+  int handler(std::map<std::string, std::string> options) override {
+    if (!options.contains("_default")) {
+      throw Error("missing disk file");
     }
-    std::string volname = args[0];
-    std::string dirname = args[1];
+    if (!options.contains("path")) {
+      throw Error("missing \"path\" parameter");
+    }
+
+    Apfs apfs(options["_default"]);
+
+    std::string volname;
+    if (!options.contains("volume")) {
+      if (apfs.volumes.size() > 1) {
+        throw Error("missing \"volume\" parameter");
+      } else {
+        volname = (char *)apfs.volumes[0].apfs_volname;
+      }
+    } else {
+      volname = options["volume"];
+    }
+    std::string dirname = options["path"];
     apfs_superblock_t volume;
     bool found = false;
     for (auto &curr_vol : apfs.volumes) {
@@ -42,7 +57,7 @@ struct LSVerb : Verb {
     auto convert_identity = [&](const oid_t &oid) { return paddr_t(oid); };
 
     auto get_paddr = [&](oid_t oid) {
-      omap_key_t key {oid, volume.apfs_o.o_xid};
+      omap_key_t key{oid, volume.apfs_o.o_xid};
       auto kv = omap_tree.upper_bound(key, convert_identity);
       kv = omap_tree.prev(cast<omap_key_t>(kv.key), convert_identity);
       if (kv == omap_tree.SENTINEL) {
@@ -56,7 +71,6 @@ struct LSVerb : Verb {
     using jtype = BTree<j_key_t, bool (*)(const bytes_t &_l, const bytes_t &_r)>;
 
     auto get_inode = [&](std::string name, uint64_t parent_id) {
-
       std::set<std::pair<uint64_t, uint64_t>> inodes;
 
       std::function<void(const jtype &)> find_drecs = [&](const jtype &node) {
@@ -116,7 +130,8 @@ struct LSVerb : Verb {
 
     for (const auto _name : std::views::split(std::string_view(dirname), '/')) {
       std::string name{std::string_view(_name)};
-      if (name.empty()) continue;
+      if (name.empty())
+        continue;
       auto [curr_inum, curr_pid, type] = get_inode(name, parent_id);
       if (!curr_inum) {
         throw Error("directory " + dirname + " does not exist");

@@ -1,7 +1,9 @@
 #include "util.hpp"
 
 #include <cassert>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 
 // Identity
 template <>
@@ -52,3 +54,33 @@ std::string color::cyan(const std::string &s) { return "\033[1;36m" + s + "\033[
 std::string color::white(const std::string &s) { return "\033[1;37m" + s + "\033[0m"; }
 std::string color::bold(const std::string &s) { return "\033[1m" + s + "\033[0m"; }
 std::string color::dim(const std::string &s) { return "\033[2m" + s + "\033[0m"; }
+
+std::string to_string(const efi_guid_t &guid) {
+  uint32_t data1;
+  uint16_t data2;
+  uint16_t data3;
+  std::memcpy(&data1, guid, sizeof(data1));
+  std::memcpy(&data2, guid + 4, sizeof(data2));
+  std::memcpy(&data3, guid + 6, sizeof(data3));
+
+  std::ostringstream oss;
+  oss << std::hex << std::uppercase << std::setfill('0');
+  oss << std::setw(8) << data1 << '-'
+      << std::setw(4) << data2 << '-'
+      << std::setw(4) << data3 << '-'
+      << std::setw(2) << uint32_t(guid[8])
+      << std::setw(2) << uint32_t(guid[9]) << '-';
+
+  for (int i = 10; i < 16; ++i) {
+    oss << std::setw(2) << uint32_t(guid[i]);
+  }
+
+  std::string type = oss.str();
+  if (type == "7C3457EF-0000-11AA-AA11-00306543ECAC") {
+    type = "APFS";
+  }
+  if (type == "C12A7328-F81F-11D2-BA4B-00A0C93EC93B") {
+    type = "EFI";
+  }
+  return type;
+}
