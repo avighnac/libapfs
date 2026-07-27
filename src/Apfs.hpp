@@ -10,5 +10,5 @@ struct Apfs {
   container_t container;
   std::vector<apfs_superblock_t> volumes;
 
-  Apfs(const std::string &filename);
+  Apfs(const std::string &filename, uint64_t offset = 0);
 };

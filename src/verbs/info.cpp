@@ -1,5 +1,6 @@
 #include <Apfs.hpp>
 #include <BlockReader.hpp>
+#include <GuidTable.hpp>
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -43,8 +44,31 @@ struct InfoVerb : Verb {
     if (!options.contains("_default")) {
       throw Error("missing disk file");
     }
-    Apfs apfs(options["_default"]);
-    
+    std::string diskname = options["_default"];
+    auto get_apfs = [&]() {
+      if (is_apfs_partition(diskname)) {
+        return Apfs(diskname);
+      }
+      GuidTable gpt(diskname);
+      std::string guid;
+      if (options.contains("part")) {
+        guid = options["part"];
+      } else {
+        std::vector<EFI_PARTITION_ENTRY> apfs_partitions;
+        for (EFI_PARTITION_ENTRY &part : gpt.partitions) {
+          if (to_string(part.PartitionTypeGUID) == "APFS") {
+            apfs_partitions.push_back(part);
+          }
+        }
+        if (apfs_partitions.size() > 1) {
+          throw Error("missing \"part\" parameter");
+        }
+        guid = to_string(gpt.partitions[0].UniquePartitionGUID);
+      }
+      return gpt.read_partition(guid);
+    };
+    Apfs apfs = get_apfs();
+
     size_t max_label_len = std::max({
         std::string("Number of blocks").size(),
         std::string("Block size").size(),

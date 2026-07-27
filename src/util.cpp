@@ -1,9 +1,11 @@
 #include "util.hpp"
 
 #include <cassert>
+#include <checksum.hpp>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <types.hpp>
 
 // Identity
 template <>
@@ -83,4 +85,23 @@ std::string to_string(const efi_guid_t &guid) {
     type = "EFI";
   }
   return type;
+}
+
+#include <iostream>
+bool is_apfs_partition(const std::string &filename) {
+  FILE *f = fopen(filename.c_str(), "rb");
+  if (f == NULL) {
+    return false;
+  }
+  bytes_t raw(NX_DEFAULT_BLOCK_SIZE, 0);
+  if (fread(raw.data(), NX_DEFAULT_BLOCK_SIZE, 1, f) != 1) {
+    fclose(f);
+    return false;
+  }
+  fclose(f);
+  if (!verify_object_checksum((void *)raw.data(), NX_DEFAULT_BLOCK_SIZE)) {
+    return false;
+  }
+  nx_superblock_t superblock = *(nx_superblock_t *)raw.data();
+  return superblock.nx_magic == NX_MAGIC;
 }

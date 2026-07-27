@@ -45,12 +45,15 @@ struct HelpVerb : Verb {
       std::cout << color::white("_default: ") << "disk file " << color::red("required") << '\n';
       std::cout << color::white("volume: ") << "volume name " << color::yellow("maybe deducible") << '\n';
       std::cout << color::white("path: ") << "file path " << color::red("required") << '\n';
+      std::cout << color::white("part: ") << "partition guid " << color::yellow("maybe deducible") << '\n';
     } else if (verb == "ls") {
       std::cout << color::white("_default: ") << "disk file " << color::red("required") << '\n';
       std::cout << color::white("volume: ") << "volume name " << color::yellow("maybe deducible") << '\n';
       std::cout << color::white("path: ") << "directory path " << color::red("required") << '\n';
+      std::cout << color::white("part: ") << "partition guid " << color::yellow("maybe deducible") << '\n';
     } else if (verb == "info") {
       std::cout << color::white("_default: ") << "filename " << color::red("required") << '\n';
+      std::cout << color::white("part: ") << "partition guid " << color::yellow("maybe deducible") << '\n';
     } else {
       std::cout << "No help found for " << verb << '\n';
     }

@@ -3,13 +3,13 @@
 
 // Read a block and return its raw bytes
 bytes_t BlockReader::read_block(uint64_t block_num) const {
-  fseek(f, block_num * BLOCK_SIZE, SEEK_SET);
+  fseek(f, block_num * BLOCK_SIZE + offset, SEEK_SET);
   bytes_t data(BLOCK_SIZE, 0);
   fread((char *)data.data(), BLOCK_SIZE, 1, f);
   return data;
 }
 
-BlockReader::BlockReader(std::string filename, bool apfs) {
+BlockReader::BlockReader(std::string filename, bool apfs, uint64_t offset) : offset(offset) {
   f = fopen(filename.data(), "rb");
   if (!f) {
     throw Error("could not open file " + filename + ": " + std::system_category().message(errno));
@@ -20,7 +20,7 @@ BlockReader::BlockReader(std::string filename, bool apfs) {
     try {
       BLOCK_SIZE = read_object<nx_superblock_t>(0).nx_block_size;
     } catch (const Error &e) {
-      throw Error(filename + " is not the start of an APFS container");
+      throw Error(filename + " is not the start of an APFS container (offset=" + std::to_string(offset) + "), with error " + e.what());
     }
   }
 }

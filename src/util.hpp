@@ -80,3 +80,6 @@ bytes_t to_bytes(const T &x) {
 }
 
 std::string to_string(const efi_guid_t &guid);
+
+// Essentially, whether or not there's an `nx_superblock_t` at block 0
+bool is_apfs_partition(const std::string &filename);

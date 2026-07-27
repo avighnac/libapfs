@@ -14,6 +14,8 @@ class BTree;
 // A utility class that reads raw memory from blocks in chunks of BLOCK_SIZE
 class BlockReader {
   FILE *f;
+  // In bytes
+  uint64_t offset;
 
 public:
   size_t BLOCK_SIZE = NX_DEFAULT_BLOCK_SIZE;
@@ -48,6 +50,6 @@ public:
 
   // Filename of the data stream, and whether or not we're reading from
   // an APFS partition directly (the other option is a disk, with an MBR)
-  BlockReader(std::string filename, bool apfs = true);
+  BlockReader(std::string filename, bool apfs = true, uint64_t offset = 0);
   ~BlockReader();
 };
