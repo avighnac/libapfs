@@ -31,6 +31,9 @@ struct ApfsVerb : Verb {
         partition = part;
       }
     }
+    if (count == 0) {
+      throw Error("no APFS partitions found on disk " + disk);
+    }
     // Otherwise pick the only APFS partition
     return gpt.read_partition(to_string(partition.UniquePartitionGUID));
   }
