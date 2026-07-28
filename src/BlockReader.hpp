@@ -53,3 +53,9 @@ public:
   BlockReader(std::string filename, bool apfs = true, uint64_t offset = 0);
   ~BlockReader();
 };
+
+template <>
+checkpoint_map_phys_t BlockReader::read_object(uint64_t block_num) const;
+
+template <>
+btree_node_phys_t BlockReader::read_object(uint64_t block_num) const;
