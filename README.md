@@ -6,6 +6,8 @@
 
 A (for now?) read-only Apple File System (APFS) implementation.
 
+![watch me pls](WATCHME.gif)
+
 # Structure
 
 All the source code is contained in `src/`. The `src/types` folder contains the structs that make up an APFS formatted disk, copy-pasted from Apple's official documentation (along with some custom types at the bottom of some files).
