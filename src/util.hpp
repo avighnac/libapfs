@@ -34,6 +34,8 @@ bytes_t r_to_bytes(const T &x) {
   return data;
 }
 
+bytes_t b_to_bytes(const bytes_t &x);
+
 // Special overload for types that have a variable length binary data tail
 // For right now, this is the only type of non trivially copyable cast we support
 // But that's fine, because it's all we need
@@ -41,7 +43,7 @@ template <typename bin_tail>
 bytes_t b_to_bytes(const bin_tail &x) {
   std::string &name = *(std::string *)((char *)&x + sizeof(bin_tail) - sizeof(std::string));
   size_t str_len = name.length();
-  size_t tot = sizeof(bin_tail) - sizeof(std::string) + str_len;
+  size_t tot = sizeof(typename bin_tail::raw_type) + str_len;
   bytes_t raw(tot, 0);
   memcpy(raw.data(), &x, tot - str_len);
   memcpy(raw.data() + tot - str_len, name.data(), str_len);
@@ -53,17 +55,19 @@ template <typename bin_tail>
 bin_tail b_cast(const bytes_t &raw) {
   bin_tail x;
   size_t tot = raw.length();
-  size_t str_len = tot - (sizeof(bin_tail) - sizeof(std::string));
+  size_t str_len = tot - sizeof(typename bin_tail::raw_type);
   memcpy((void *)&x, raw.data(), tot - str_len);
   std::string &name = *(std::string *)((char *)&x + sizeof(bin_tail) - sizeof(std::string));
   name.append(raw.data() + tot - str_len, str_len);
   return x;
 }
 
-// Converts raw bytes stored in a `byte_t` to a `T`.
+// Converts raw bytes stored in a `bytes_t` to a `T`.
 template <typename T>
 T cast(const bytes_t &raw) {
-  if constexpr (std::is_trivially_copyable_v<T>) {
+  if constexpr (std::is_same_v<T, bytes_t>) {
+    return raw;
+  } else if constexpr (std::is_trivially_copyable_v<T>) {
     return r_cast<T>(raw);
   } else {
     return b_cast<T>(raw);
@@ -76,7 +80,7 @@ bytes_t to_bytes(const T &x) {
   if constexpr (std::is_trivially_copyable_v<T>) {
     return r_to_bytes<T>(x);
   } else {
-    return b_to_bytes<T>(x);
+    return b_to_bytes(x);
   }
 }
 

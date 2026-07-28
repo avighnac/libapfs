@@ -84,7 +84,7 @@ struct j_inode_key_t : j_key_t {
 struct j_val_t {};
 
 // The value half of an inode record.
-struct j_inode_val_t : j_val_t {
+struct _j_inode_val_t : j_val_t {
   uint64_t parent_id;
   uint64_t private_id;
   uint64_t create_time;
@@ -104,8 +104,11 @@ struct j_inode_val_t : j_val_t {
   apfs_mode_t mode;
   uint16_t pad1;
   uint64_t uncompressed_size;
-  bytes_t xfields;
 } __attribute__((packed));
+struct j_inode_val_t : _j_inode_val_t {
+  using raw_type = _j_inode_val_t;
+  bytes_t xfields;
+};
 
 // The key half of a directory entry record.
 // struct j_drec_key_t : j_key_t {
@@ -114,18 +117,24 @@ struct j_inode_val_t : j_val_t {
 // } __attribute__((packed));
 
 // The key half of a directory entry record, including a precomputed hash of its name.
-struct j_drec_hashed_key_t : j_key_t {
+struct _j_drec_hashed_key_t : j_key_t {
   uint32_t name_len_and_hash;
-  std::string name;
 } __attribute__((packed));
+struct j_drec_hashed_key_t : _j_drec_hashed_key_t {
+  using raw_type = _j_drec_hashed_key_t;
+  std::string name;
+};
 
 // The value half of a directory entry record.
-struct j_drec_val_t : j_val_t {
+struct _j_drec_val_t : j_val_t {
   uint64_t file_id;
   uint64_t date_added;
   uint16_t flags;
-  bytes_t xfields;
 } __attribute__((packed));
+struct j_drec_val_t : _j_drec_val_t {
+  using raw_type = _j_drec_val_t;
+  bytes_t xfields;
+};
 
 // The key half of a directory-information record.
 struct j_dir_stats_key_t : j_key_t {
@@ -140,17 +149,23 @@ struct j_dir_stats_val_t : j_val_t {
 } __attribute__((packed));
 
 // The key half of an extended attribute record.
-struct j_xattr_key_t : j_key_t {
+struct _j_xattr_key_t : j_key_t {
   uint16_t name_len;
-  std::string name;
 } __attribute__((packed));
+struct j_xattr_key_t : _j_xattr_key_t {
+  using raw_type = _j_xattr_key_t;
+  std::string name;
+};
 
 // The value half of an extended attribute record.
-struct j_xattr_val_t : j_val_t {
+struct _j_xattr_val_t : j_val_t {
   uint16_t flags;
   uint16_t xdata_len;
-  bytes_t xdata;
 } __attribute__((packed));
+struct j_xattr_val_t : _j_xattr_val_t {
+  using raw_type = _j_xattr_val_t;
+  bytes_t xdata;
+};
 
 // The type of a file-system record.
 enum j_obj_types {
@@ -293,11 +308,14 @@ struct j_sibling_key_t : j_key_t {
 } __attribute__((packed));
 
 // The value half of a sibling-link record.
-struct j_sibling_val_t : j_val_t {
+struct _j_sibling_val_t : j_val_t {
   uint64_t parent_id;
   uint16_t name_len;
-  std::string name;
 } __attribute__((packed));
+struct j_sibling_val_t : _j_sibling_val_t {
+  using raw_type = _j_sibling_val_t;
+  std::string name;
+};
 
 // The key half of a sibling-map record.
 struct j_sibling_map_key_t : j_key_t {
@@ -313,7 +331,7 @@ struct j_snap_metadata_key_t : j_key_t {
 } __attribute__((packed));
 
 // The value half of a record containing metadata about a snapshot.
-struct j_snap_metadata_val_t : j_val_t {
+struct _j_snap_metadata_val_t : j_val_t {
   oid_t extentref_tree_oid;
   oid_t sblock_oid;
   uint64_t create_time;
@@ -322,14 +340,20 @@ struct j_snap_metadata_val_t : j_val_t {
   uint32_t extentref_tree_type;
   uint32_t flags;
   uint16_t name_len;
-  std::string name;
 } __attribute__((packed));
+struct j_snap_metadata_val_t : _j_snap_metadata_val_t {
+  using raw_type = _j_snap_metadata_val_t;
+  std::string name;
+};
 
 // The key half of a snapshot name record.
-struct j_snap_name_key_t : j_key_t {
+struct _j_snap_name_key_t : j_key_t {
   uint16_t name_len;
-  std::string name;
 } __attribute__((packed));
+struct j_snap_name_key_t : _j_snap_name_key_t {
+  using raw_type = _j_snap_name_key_t;
+  std::string name;
+};
 
 struct j_snap_name_val_t : j_val_t {
   xid_t snap_xid;

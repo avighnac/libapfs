@@ -7,9 +7,7 @@
 #include <sstream>
 #include <types.hpp>
 
-// Identity
-template <>
-bytes_t to_bytes(const bytes_t &x) { return x; }
+bytes_t b_to_bytes(const bytes_t &x) { return x; }
 
 // From https://jtsylve.blog/post/2022/12/15/APFS-FSTrees
 // For some reason the actual docs don't seem to mention the hash comparasion in `APFS_TYPE_DIR_REC`?
