@@ -13,7 +13,7 @@
 int _main(int argc, const std::vector<std::string> &_argv);
 
 void print_error(const std::string &msg) {
-  std::cout << color::red("error: ") << msg << '\n';
+  std::cerr << color::red("error: ") << msg << '\n';
 }
 
 std::map<std::string, std::string> parse_options(const std::vector<std::string> argv) {
