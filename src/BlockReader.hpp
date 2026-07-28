@@ -23,6 +23,9 @@ public:
   // Read a block and return its raw bytes
   bytes_t read_block(uint64_t block_num) const;
 
+  // Read some blocks and return their raw bytes
+  bytes_t read_blocks(uint64_t block_num, uint64_t num_blocks) const;
+
   // Read an APFS object (that begins with `obj_phys_t`) from a given block,
   // verify its checksum, and return it
   template <typename T>

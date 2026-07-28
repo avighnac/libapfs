@@ -9,6 +9,13 @@ bytes_t BlockReader::read_block(uint64_t block_num) const {
   return data;
 }
 
+bytes_t BlockReader::read_blocks(uint64_t block_num, uint64_t num_blocks) const {
+  fseek(f, block_num * BLOCK_SIZE + offset, SEEK_SET);
+  bytes_t data(num_blocks * BLOCK_SIZE, 0);
+  fread((char *)data.data(), BLOCK_SIZE, num_blocks, f);
+  return data;
+}
+
 BlockReader::BlockReader(std::string filename, bool apfs, uint64_t offset) : offset(offset) {
   f = fopen(filename.data(), "rb");
   if (!f) {
