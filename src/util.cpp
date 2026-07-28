@@ -44,6 +44,11 @@ bool compare_j_key_t(const bytes_t &_l, const bytes_t &_r) {
     return l_key.name < r_key.name;
   }
 
+  // I really hope this is true...
+  if (l_type == APFS_TYPE_FILE_EXTENT) {
+    return cast<j_file_extent_key_t>(_l).logical_addr < cast<j_file_extent_key_t>(_r).logical_addr;
+  }
+
   return false;
 }
 

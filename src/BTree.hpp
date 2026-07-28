@@ -3,6 +3,7 @@
 #include <BlockReader.hpp>
 #include <algorithm>
 #include <cassert>
+#include <functional>
 #include <limits>
 #include <type_traits>
 #include <types.hpp>

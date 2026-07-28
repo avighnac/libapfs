@@ -51,7 +51,6 @@ struct LsVerb : VolumeVerb {
 
     // This works based on the assumption that:
     // the object id of a `drec_hashed_key_t` is equal to the inode's object id of the parent directory
-
     std::string path = options["path"];
     std::vector<std::string> dirs;
     std::string dir;
@@ -70,7 +69,7 @@ struct LsVerb : VolumeVerb {
     }
 
     // Find the right directory
-    uint64_t cur_dir_obj_id = 2; // root object id
+    uint64_t cur_dir_obj_id = ROOT_DIR_INO_NUM; // root object id
     for (std::string &dir : dirs) {
       j_drec_hashed_key_t key;
       key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << 60ULL) | cur_dir_obj_id;
@@ -83,14 +82,14 @@ struct LsVerb : VolumeVerb {
       cur_dir_obj_id = cast<j_drec_val_t>(kv.val).file_id;
     }
 
-    // Now print the contents
+    // Now print the files in the directory
     j_drec_hashed_key_t key;
     key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << 60ULL) | cur_dir_obj_id;
     key.name_len_and_hash = 0;
     key.name = "";
 
     auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
-    while ((cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_DIR_REC) {
+    while (kv != filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_DIR_REC) {
       std::string name = cast<j_drec_hashed_key_t>(kv.key).name;
       if (cast<j_drec_val_t>(kv.val).flags & DT_DIR) {
         std::cout << color::green(name) << '\n';

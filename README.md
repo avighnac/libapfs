@@ -26,7 +26,7 @@ Verbs
 To find out which options are required for a given verb, run apfs help <verb>.
 ```
 
-`ls` and `cat` work on exact paths although `cat` is currently very inefficient and is right now just a test version.
+`ls` and `cat` work on exact paths.
 
 # Examples
 

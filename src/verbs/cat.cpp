@@ -1,23 +1,28 @@
-// This is a purposefully temporary inefficient (but working) implementation for testing purposes
-
-#include <VolumeVerb.hpp>
 #include <BTree.hpp>
-#include <GuidTable.hpp>
-#include <functional>
+#include <VolumeVerb.hpp>
+#include <crc32c.hpp>
 #include <iostream>
-#include <ranges>
-#include <set>
-#include <string_view>
+#include <types.hpp>
+#include <util.hpp>
 
 struct CatVerb : VolumeVerb {
   CatVerb() : VolumeVerb("cat", "Prints the contents of a given file") {}
 
-  struct Inode {
-    uint64_t num;
-    uint64_t private_id;
-    uint64_t type;
-    uint64_t size;
-  };
+  uint32_t drec_key_hash(const std::string &name) {
+    std::string data;
+    for (int i = 0; i < name.length(); ++i) {
+      char c = name[i];
+      c = tolower(c);
+      if (c > 0x7F) {
+        throw Error("name is not ASCII");
+      }
+      data.append(to_bytes(uint32_t(c)));
+    }
+    uint32_t hash_computed = crc32c.hash((const uint8_t *)data.data(), data.length());
+    hash_computed ^= 0xFFFFFFFFu;
+    hash_computed &= (1 << 22) - 1;
+    return hash_computed;
+  }
 
   uint64_t get_inode_size(j_inode_val_t inode) {
     char *raw = inode.xfields.data();
@@ -51,136 +56,96 @@ struct CatVerb : VolumeVerb {
     return 0;
   }
 
-  // ./apfs cat diskname --volume --path
   int volume_handler(apfs_superblock_t &volume, BlockReader &reader, std::map<std::string, std::string> options) override {
     if (!options.contains("path")) {
       throw Error("missing \"path\" parameter");
     }
-    std::string filename = options["path"];
 
+    // Read the object map, and construct the BTree
     omap_phys_t omap = reader.read_object<omap_phys_t>(volume.apfs_omap_oid);
-    BTree<omap_key_t> omap_tree = reader.read_btree<omap_key_t>(omap.om_tree_oid);
-    auto convert_identity = [&](const oid_t &oid) { return paddr_t(oid); };
+    BTree<omap_key_t> object_map = reader.read_btree<omap_key_t>(omap.om_tree_oid);
 
-    auto get_paddr = [&](oid_t oid) {
-      omap_key_t key{oid, volume.apfs_o.o_xid};
-      auto kv = omap_tree.upper_bound(to_bytes(key), convert_identity);
-      kv = omap_tree.prev(kv.key, convert_identity);
-      if (kv == omap_tree.SENTINEL) {
-        throw Error("invalid OID: " + std::to_string(oid));
+    auto identity = [&](const oid_t &oid) { return paddr_t(oid); };
+    // Virtual object => physical address by reading the object_map BTree
+    auto get_paddr = [&](const oid_t &oid) {
+      omap_key_t key = {oid, volume.apfs_o.o_xid};
+      auto kv = object_map.upper_bound(to_bytes(key), identity);
+      kv = object_map.prev(kv.key, identity);
+      if (cast<omap_key_t>(kv.key).ok_oid != oid) {
+        throw Error("could not valid match for (" + std::to_string(oid) + ", " + std::to_string(key.ok_xid) + ") in the volume object map");
       }
-      assert(cast<omap_key_t>(kv.key).ok_oid == oid);
       return cast<omap_val_t>(kv.val).ov_paddr;
     };
 
-    auto root_tree = reader.read_btree<j_key_t>(get_paddr(volume.apfs_root_tree_oid), compare_j_key_t);
-    using jtype = BTree<j_key_t, bool (*)(const bytes_t &_l, const bytes_t &_r)>;
+    // We can now access the filesystem tree
+    using btree_t = BTree<j_key_t, decltype(&compare_j_key_t)>;
+    btree_t filesystem = reader.read_btree<j_key_t>(get_paddr(volume.apfs_root_tree_oid), compare_j_key_t);
 
-    auto get_inode = [&](std::string name, uint64_t parent_id) {
-      std::set<std::pair<uint64_t, uint64_t>> inodes;
-
-      std::function<void(const jtype &)> find_drecs = [&](const jtype &node) {
-        if (node.is_leaf()) {
-          for (auto &[k, v] : node.key_values) {
-            uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-            if (key_type == APFS_TYPE_DIR_REC && cast<j_drec_hashed_key_t>(k).name == name) {
-              inodes.insert({cast<j_drec_val_t>(v).file_id, cast<j_drec_val_t>(v).flags});
-            }
-          }
-          return;
+    // This works based on the assumption that:
+    // the object id of a `drec_hashed_key_t` is equal to the inode's object id of the parent directory
+    std::string path = options["path"];
+    std::vector<std::string> dirs;
+    std::string dir;
+    for (char &c : path) {
+      if (c == '/') {
+        if (!dir.empty()) {
+          dirs.push_back(dir);
+          dir.clear();
         }
-        for (auto &[k, v] : node.children()) {
-          find_drecs(reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
-        }
-      };
-
-      find_drecs(root_tree);
-
-      if (inodes.empty()) {
-        return Inode{0, 0, 0, 0};
-      }
-
-      uint64_t inode_num = 0, private_id = 0, file_type = 0, size = 0;
-
-      std::function<void(const jtype &)> find_private_id = [&](const jtype &node) {
-        if (node.is_leaf()) {
-          for (auto &[k, v] : node.key_values) {
-            uint64_t key_id = cast<j_key_t>(k).obj_id_and_type & OBJ_ID_MASK;
-            uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-            if (key_type == APFS_TYPE_INODE && cast<j_inode_val_t>(v).parent_id == parent_id) {
-              auto it = inodes.lower_bound({key_id, 0});
-              if (it != inodes.end() && it->first == key_id) {
-                size = get_inode_size(cast<j_inode_val_t>(v));
-                inode_num = key_id;
-                private_id = cast<j_inode_val_t>(v).private_id;
-                file_type = it->second;
-                break;
-              }
-            }
-          }
-          return;
-        }
-        for (auto &[k, v] : node.children()) {
-          find_private_id(reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
-          if (private_id) {
-            break;
-          }
-        }
-      };
-
-      find_private_id(root_tree);
-
-      return Inode{inode_num, private_id, file_type & DREC_TYPE_MASK, size};
-    };
-
-    uint64_t private_id, parent_id = ROOT_DIR_INO_NUM, file_type, file_size;
-
-    for (const auto _name : std::views::split(std::string_view(filename), '/')) {
-      std::string name{std::string_view(_name)};
-      if (name.empty())
         continue;
-      auto [curr_inum, curr_pid, type, size] = get_inode(name, parent_id);
-      if (!curr_inum) {
-        throw Error("file " + filename + " does not exist");
       }
-      private_id = curr_pid;
-      parent_id = curr_inum;
-      file_type = type;
-      file_size = size;
+      dir.push_back(c);
+    }
+    if (!dir.empty()) {
+      dirs.push_back(dir);
     }
 
-    if (file_type == DT_DIR) {
-      throw Error(filename + " is a directory");
+    // Navigate to the file
+    uint64_t inode_num = ROOT_DIR_INO_NUM; // root object id
+    for (std::string &dir : dirs) {
+      j_drec_hashed_key_t key;
+      key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << 60ULL) | inode_num;
+      key.name = dir;
+      key.name_len_and_hash = (drec_key_hash(key.name) << 10) | (key.name.length() + 1);
+
+      auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
+      assert(kv.key == to_bytes(key));
+
+      inode_num = cast<j_drec_val_t>(kv.val).file_id;
     }
 
-    std::string contents(file_size, 0);
+    // Find the inode
+    j_inode_key_t inode_key;
+    inode_key.obj_id_and_type = (uint64_t(APFS_TYPE_INODE) << 60ULL) | inode_num;
+    auto inode_kv = filesystem.lower_bound(to_bytes(inode_key), get_paddr);
+    assert(inode_kv.key == to_bytes(inode_key));
 
-    std::function<void(const jtype &)> find_externs = [&](const jtype &node) {
-      if (node.is_leaf()) {
-        for (auto &[k, v] : node.key_values) {
-          uint64_t key_id = cast<j_key_t>(k).obj_id_and_type & OBJ_ID_MASK;
-          uint64_t key_type = (cast<j_key_t>(k).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT;
-          if (key_type == APFS_TYPE_FILE_EXTENT && key_id == private_id) {
-            uint64_t addr = cast<j_file_extent_key_t>(k).logical_addr;
-            uint64_t len = cast<j_file_extent_val_t>(v).len_and_flags & J_FILE_EXTENT_LEN_MASK;
-            uint64_t block_size = nx_block_size;
-            size_t num_blocks = len / block_size;
-            for (int i = 0; i < num_blocks; i++) {
-              bytes_t block = reader.read_block(cast<j_file_extent_val_t>(v).phys_block_num + i);
-              memcpy(contents.data() + addr + (block_size * i), block.data(), std::min(block_size, contents.size() - (addr + (block_size * i))));
-            }
-            break;
-          }
+    // This works because:
+    // this private_id == the object id of the file extents corresponding to this file
+    uint64_t private_id = cast<j_inode_val_t>(inode_kv.val).private_id;
+
+    // Find file extents
+    uint64_t size_remaining = get_inode_size(cast<j_inode_val_t>(inode_kv.val));
+    j_file_extent_key_t key;
+    key.logical_addr = 0;
+    key.obj_id_and_type = (uint64_t(APFS_TYPE_FILE_EXTENT) << 60ULL) | private_id;
+    auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
+    while (kv != filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_FILE_EXTENT) {
+      j_file_extent_val_t val = cast<j_file_extent_val_t>(kv.val);
+      uint64_t addr = cast<j_file_extent_key_t>(kv.key).logical_addr;
+      uint64_t len = val.len_and_flags & J_FILE_EXTENT_LEN_MASK;
+      size_t num_blocks = len / nx_block_size;
+      for (int i = 0; i < num_blocks; i++) {
+        bytes_t block = reader.read_block(val.phys_block_num + i);
+        if (size_remaining < block.size()) {
+          block.resize(size_remaining);
         }
-        return;
+        std::cout << block;
+        size_remaining -= block.size();
       }
-      for (auto &[k, v] : node.children())
-        find_externs(reader.read_btree<j_key_t>(get_paddr(v.binv_child_oid), compare_j_key_t));
-    };
 
-    find_externs(root_tree);
-
-    std::cout << contents;
+      kv = filesystem.upper_bound(kv.key, get_paddr);
+    }
 
     return 0;
   }
