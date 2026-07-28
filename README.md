@@ -63,6 +63,15 @@ Volumes
 └─ Recovery          772 MB
 ```
 
+# Installation
+
+To install the `apfs` command-line executable on Linux or macOS, run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/avighnac/libapfs/refs/heads/main/install.sh | bash
+```
+
+For windows users, pick the version you want from `https://github.com/avighnac/libapfs/releases` and download the .exe file.
+
 # Resources
 
 We used the following resources to write this library:
