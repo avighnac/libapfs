@@ -32,7 +32,7 @@ struct obj_phys_t {
 };
 
 // Object types
-enum {
+enum object_type {
   OBJECT_TYPE_NX_SUPERBLOCK = 0x00000001,
   OBJECT_TYPE_BTREE = 0x00000002,
   OBJECT_TYPE_BTREE_NODE = 0x00000003,
@@ -77,7 +77,7 @@ enum {
   OBJECT_TYPE_CONTAINER_KEYBAG = 'keys',
   OBJECT_TYPE_VOLUME_KEYBAG = 'recs',
   OBJECT_TYPE_MEDIA_KEYBAG = 'mkey'
-} object_type;
+};
 
 // Object map
 
