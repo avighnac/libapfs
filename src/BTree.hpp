@@ -240,12 +240,10 @@ key_value_t BTree<KeyType, Compare>::upper_bound(const bytes_t &k, const Convert
   return reader.read_btree<KeyType>(addr, _lt).upper_bound(k, convert);
 }
 
+// Find the last key-value pair less than k in the whole tree
 template <typename KeyType, typename Compare>
 template <typename Convert>
 key_value_t BTree<KeyType, Compare>::prev(const bytes_t &k, const Convert &convert) {
-  if (lt(key_values.back().key, k)) {
-    return key_values.back();
-  }
   // Finds the current range
   int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return lt(k, kv.key); }) - key_values.begin() - 1;
   assert(0 <= idx && idx < key_values.size());

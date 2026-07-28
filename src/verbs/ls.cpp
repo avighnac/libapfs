@@ -33,6 +33,19 @@ struct LsVerb : VolumeVerb {
     omap_phys_t omap = reader.read_object<omap_phys_t>(volume.apfs_omap_oid);
     BTree<omap_key_t> object_map = reader.read_btree<omap_key_t>(omap.om_tree_oid);
 
+    // auto dfs = [&](auto &&self, BTree<omap_key_t> node) {
+    //   if (node.is_leaf()) {
+    //     for (auto &[_k, _v] : node.key_values) {
+    //       std::cout << "(" << cast<omap_key_t>(_k).ok_oid << ", " << cast<omap_key_t>(_k).ok_xid << ")\n";
+    //     }
+    //     return;
+    //   }
+    //   for (auto &[k, v] : node.children()) {
+    //     self(self, reader.read_btree<omap_key_t>(v.binv_child_oid));
+    //   }
+    // };
+    // dfs(dfs, object_map);
+
     auto identity = [&](const oid_t &oid) { return paddr_t(oid); };
     // Virtual object => physical address by reading the object_map BTree
     auto get_paddr = [&](const oid_t &oid) {
@@ -40,6 +53,7 @@ struct LsVerb : VolumeVerb {
       auto kv = object_map.upper_bound(to_bytes(key), identity);
       kv = object_map.prev(kv.key, identity);
       if (cast<omap_key_t>(kv.key).ok_oid != oid) {
+        std::cout << "got: " << cast<omap_key_t>(kv.key).ok_oid << ", " << cast<omap_key_t>(kv.key).ok_xid << "\n";
         throw Error("could not valid match for (" + std::to_string(oid) + ", " + std::to_string(key.ok_xid) + ") in the volume object map");
       }
       return cast<omap_val_t>(kv.val).ov_paddr;
@@ -72,7 +86,7 @@ struct LsVerb : VolumeVerb {
     uint64_t cur_dir_obj_id = ROOT_DIR_INO_NUM; // root object id
     for (std::string &dir : dirs) {
       j_drec_hashed_key_t key;
-      key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << 60ULL) | cur_dir_obj_id;
+      key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << OBJ_TYPE_SHIFT) | cur_dir_obj_id;
       key.name = dir;
       key.name_len_and_hash = (drec_key_hash(key.name) << 10) | (key.name.length() + 1);
 
@@ -84,12 +98,12 @@ struct LsVerb : VolumeVerb {
 
     // Now print the files in the directory
     j_drec_hashed_key_t key;
-    key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << 60ULL) | cur_dir_obj_id;
+    key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << OBJ_TYPE_SHIFT) | cur_dir_obj_id;
     key.name_len_and_hash = 0;
     key.name = "";
 
     auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
-    while (kv != filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_DIR_REC) {
+    while (kv != filesystem.SENTINEL && ((cast<j_key_t>(kv.key).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT) == APFS_TYPE_DIR_REC) {
       std::string name = cast<j_drec_hashed_key_t>(kv.key).name;
       if (cast<j_drec_val_t>(kv.val).flags & DT_DIR) {
         std::cout << color::green(name) << '\n';

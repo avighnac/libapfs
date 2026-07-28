@@ -104,7 +104,7 @@ struct CatVerb : VolumeVerb {
     uint64_t inode_num = ROOT_DIR_INO_NUM; // root object id
     for (std::string &dir : dirs) {
       j_drec_hashed_key_t key;
-      key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << 60ULL) | inode_num;
+      key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << OBJ_TYPE_SHIFT) | inode_num;
       key.name = dir;
       key.name_len_and_hash = (drec_key_hash(key.name) << 10) | (key.name.length() + 1);
 
@@ -116,7 +116,7 @@ struct CatVerb : VolumeVerb {
 
     // Find the inode
     j_inode_key_t inode_key;
-    inode_key.obj_id_and_type = (uint64_t(APFS_TYPE_INODE) << 60ULL) | inode_num;
+    inode_key.obj_id_and_type = (uint64_t(APFS_TYPE_INODE) << OBJ_TYPE_SHIFT) | inode_num;
     auto inode_kv = filesystem.lower_bound(to_bytes(inode_key), get_paddr);
     assert(inode_kv.key == to_bytes(inode_key));
 
@@ -128,7 +128,7 @@ struct CatVerb : VolumeVerb {
     uint64_t size_remaining = get_inode_size(cast<j_inode_val_t>(inode_kv.val));
     j_file_extent_key_t key;
     key.logical_addr = 0;
-    key.obj_id_and_type = (uint64_t(APFS_TYPE_FILE_EXTENT) << 60ULL) | private_id;
+    key.obj_id_and_type = (uint64_t(APFS_TYPE_FILE_EXTENT) << OBJ_TYPE_SHIFT) | private_id;
     auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
     while (kv != filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_FILE_EXTENT) {
       j_file_extent_val_t val = cast<j_file_extent_val_t>(kv.val);

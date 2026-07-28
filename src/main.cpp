@@ -48,7 +48,6 @@ int main(int argc, char **_argv) {
   }
   try {
     return _main(argc, argv);
-    // return _main(3, {"./apfs", "fastcat", "/dev/rdisk5"});
   } catch (const Error &e) {
     print_error(e.what());
     return 1;
