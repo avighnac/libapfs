@@ -191,12 +191,9 @@ jobs:
         name: apfs-macos-x86-64
     - name: Set necessary variables
       run: |
-        OS_=$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
-        ARCH=$(uname -m)
-        OS="$OS_ $ARCH"
         TAG=$(curl -s "https://api.github.com/repos/avighnac/libapfs/releases/latest" | jq -r '.tag_name')
         SUFFIX=$(
-          curl -s "https://api.github.com/repos/avighnac/apfs/tags?per_page=100" |
+          curl -s "https://api.github.com/repos/avighnac/libapfs/tags?per_page=100" |
           jq -r --arg base "$TAG" '
             [.[].name
             | select(startswith($base + "-alpha-"))
@@ -205,7 +202,6 @@ jobs:
             | (max // 0) + 1
           '
         )
-        COMPILEDON=$(date +"%d-%m-%Y")
         VERSION_="$TAG-alpha-$SUFFIX"
         YEAR=$(date +"%Y")
         RELEASE_NAME="apfs $VERSION_"
