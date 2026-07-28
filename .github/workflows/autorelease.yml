@@ -1,0 +1,279 @@
+name: autorelease
+
+on:
+  push:
+    branches: main
+
+jobs:
+  build-linux-x86:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+    - name: Install packages
+      run: |
+        sudo apt update
+        sudo apt install gcc
+        sudo apt install g++
+        sudo apt install cmake
+    - name: Set variables and compile
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release 
+        cmake --build build
+        mv build/src/apfs build/src/apfs-linux-x86-64
+    - name: Upload executable for linux-x86-64
+      uses: actions/upload-artifact@v4
+      with:
+        name: apfs-linux-x86-64
+        path: build/src/apfs-linux-x86-64
+
+  build-linux-arm64:
+    permissions: write-all
+    runs-on: ubuntu-24.04-arm
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+    - name: Install packages
+      run: |
+        sudo apt update
+        sudo apt install gcc
+        sudo apt install g++
+        sudo apt install cmake
+    - name: Set variables and compile
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build
+        mv build/src/apfs build/src/apfs-linux-arm64
+    - name: Upload executable for linux-arm64
+      uses: actions/upload-artifact@v4
+      with:
+        name: apfs-linux-arm64
+        path: build/src/apfs-linux-arm64
+
+  build-windows-x86:
+    permissions: write-all
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+    - name: Install packages
+      run: |
+        Invoke-WebRequest -OutFile file.zip https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r6/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r6.zip
+        Expand-Archive file.zip -DestinationPath .
+    - name: Set variables and compile
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        $toolroot = Join-Path $PWD "mingw64"
+        cmake -S . -B build -G "MinGW Makefiles" `
+          -DCMAKE_C_COMPILER="$toolroot/bin/gcc.exe" `
+          -DCMAKE_CXX_COMPILER="$toolroot/bin/g++.exe"
+        cmake --build build
+        Move-Item build/src/apfs.exe build/src/apfs-windows-x86-64.exe
+    - name: Upload executable for windows-x86-64
+      uses: actions/upload-artifact@v4
+      with:
+        name: apfs-windows-x86-64.exe
+        path: build/src/apfs-windows-x86-64.exe
+
+  build-windows-arm64:
+    permissions: write-all
+    runs-on: windows-11-arm
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+    - name: Install packages
+      run: |
+        Invoke-WebRequest -OutFile file.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20260311/llvm-mingw-20260311-ucrt-aarch64.zip
+        Expand-Archive file.zip -DestinationPath .
+    - name: Set variables and compile
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        $toolroot = Join-Path $PWD "llvm-mingw-20260311-ucrt-aarch64"
+        cmake -S . -B build -G "MinGW Makefiles" `
+          -DCMAKE_C_COMPILER="$toolroot/bin/clang.exe" `
+          -DCMAKE_CXX_COMPILER="$toolroot/bin/clang++.exe"
+        cmake --build build
+        Move-Item build/src/apfs.exe build/src/apfs-windows-arm64.exe
+    - name: Upload executable for windows-arm64
+      uses: actions/upload-artifact@v4
+      with:
+        name: apfs-windows-arm64.exe
+        path: build/src/apfs-windows-arm64.exe
+
+  build-macos-arm64:
+    permissions: write-all
+    runs-on: macos-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+    - name: Set variables and compile
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        GCC_MAJOR=$(brew list --versions gcc | awk '{print $2}' | cut -d. -f1)
+        GCC="$(brew --prefix)/bin/gcc-$GCC_MAJOR"
+        GXX="$(brew --prefix)/bin/g++-$GCC_MAJOR"
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER="$GCC" \
+          -DCMAKE_CXX_COMPILER="$GXX"
+        cmake --build build
+        mv build/src/apfs build/src/apfs-macos-arm64
+    - name: Upload executable for macos-arm64
+      uses: actions/upload-artifact@v4
+      with:
+        name: apfs-macos-arm64
+        path: build/src/apfs-macos-arm64
+
+  build-macos-x86:
+    permissions: write-all
+    runs-on: macos-26-intel
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
+    - name: Set variables and compile
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        GCC_MAJOR=$(brew list --versions gcc | awk '{print $2}' | cut -d. -f1)
+        GCC="$(brew --prefix)/bin/gcc-$GCC_MAJOR"
+        GXX="$(brew --prefix)/bin/g++-$GCC_MAJOR"
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER="$GCC" \
+          -DCMAKE_CXX_COMPILER="$GXX"
+        cmake --build build
+        mv build/src/apfs build/src/apfs-macos-x86-64
+    - name: Upload executable for macos-x86-64
+      uses: actions/upload-artifact@v4
+      with:
+        name: apfs-macos-x86-64
+        path: build/src/apfs-macos-x86-64
+
+  create-release:
+    needs:
+      - build-linux-x86
+      - build-linux-arm64
+      - build-windows-x86
+      - build-windows-arm64
+      - build-macos-arm64
+      - build-macos-x86
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Download executable for linux-x86-64
+      uses: actions/download-artifact@v4
+      with:
+        name: apfs-linux-x86-64
+    - name: Download executable for linux-arm64
+      uses: actions/download-artifact@v4
+      with:
+        name: apfs-linux-arm64
+    - name: Download executable for windows-x86-64
+      uses: actions/download-artifact@v4
+      with:
+        name: apfs-windows-x86-64.exe
+    - name: Download executable for windows-arm64
+      uses: actions/download-artifact@v4
+      with:
+        name: apfs-windows-arm64.exe
+    - name: Download executable for macos-arm64
+      uses: actions/download-artifact@v4
+      with:
+        name: apfs-macos-arm64
+    - name: Download executable for macos-x86-64
+      uses: actions/download-artifact@v4
+      with:
+        name: apfs-macos-x86-64
+    - name: Set necessary variables
+      run: |
+        OS_=$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+        ARCH=$(uname -m)
+        OS="$OS_ $ARCH"
+        TAG=$(curl -s "https://api.github.com/repos/avighnac/libapfs/releases/latest" | jq -r '.tag_name')
+        SUFFIX=$(
+          curl -s "https://api.github.com/repos/avighnac/apfs/tags?per_page=100" |
+          jq -r --arg base "$TAG" '
+            [.[].name
+            | select(startswith($base + "-alpha-"))
+            | sub("^" + $base + "-alpha-"; "")
+            | tonumber]
+            | (max // 0) + 1
+          '
+        )
+        COMPILEDON=$(date +"%d-%m-%Y")
+        VERSION_="$TAG-alpha-$SUFFIX"
+        YEAR=$(date +"%Y")
+        RELEASE_NAME="apfs $VERSION_"
+        echo "VERSION_=$VERSION_" >> $GITHUB_ENV
+        echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+    - name: Create a GitHub release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.VERSION_ }}
+        release_name: ${{ env.RELEASE_NAME }}
+        draft: false
+        prerelease: true
+    - name: Upload executable for linux-x86-64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: apfs-linux-x86-64
+        asset_name: apfs-linux-x86-64
+        asset_content_type: application/x-executable
+    - name: Upload executable for linux-arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: apfs-linux-arm64
+        asset_name: apfs-linux-arm64
+        asset_content_type: application/x-executable
+    - name: Upload executable for windows-x86-64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: apfs-windows-x86-64.exe
+        asset_name: apfs-windows-x86-64.exe
+        asset_content_type: application/x-executable
+    - name: Upload executable for windows-arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: apfs-windows-arm64.exe
+        asset_name: apfs-windows-arm64.exe
+        asset_content_type: application/x-executable
+    - name: Upload executable for macos-arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: apfs-macos-arm64
+        asset_name: apfs-macos-arm64
+        asset_content_type: application/x-executable
+    - name: Upload executable for macos-x86-64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: apfs-macos-x86-64
+        asset_name: apfs-macos-x86-64
+        asset_content_type: application/x-executable
