@@ -1,6 +1,10 @@
 # libapfs
 
-A library that reads APFS formatted disk images.
+<p align="left">
+  <img src="./icon.svg" width="260" alt="libapfs">
+</p>
+
+A (for now?) read-only Apple File System (APFS) implementation.
 
 # Structure
 

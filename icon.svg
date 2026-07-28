@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="570" height="220" viewBox="0 0 570 220">
+  <title>libapfs wordmark</title>
+  <text x="20" y="155"
+        font-family="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+        font-size="132"
+        font-weight="700"
+        letter-spacing="-6">
+    <tspan fill="#111827">lib</tspan><tspan fill="#22C55E">apfs</tspan>
+  </text>
+</svg>
