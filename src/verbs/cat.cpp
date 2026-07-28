@@ -134,13 +134,20 @@ struct CatVerb : VolumeVerb {
       j_file_extent_val_t val = cast<j_file_extent_val_t>(kv.val);
       uint64_t addr = cast<j_file_extent_key_t>(kv.key).logical_addr;
       uint64_t len = val.len_and_flags & J_FILE_EXTENT_LEN_MASK;
+      constexpr size_t buffer_size = 4 * 1024 * 1024;
       size_t num_blocks = len / nx_block_size;
-      bytes_t raw = reader.read_blocks(val.phys_block_num, num_blocks);
-      if (size_remaining < raw.size()) {
-        raw.resize(size_remaining);
+      uint64_t current_block = val.phys_block_num;
+      size_t blocks_remaining = num_blocks;
+      while (blocks_remaining > 0 && size_remaining > 0) {
+        size_t max_blocks_per_read = std::max(size_t(1), buffer_size / nx_block_size);
+        size_t blocks_to_read = std::min(blocks_remaining, max_blocks_per_read);
+        bytes_t raw = reader.read_blocks(current_block, blocks_to_read);
+        size_t bytes_to_write = std::min(raw.size(), size_t(size_remaining));
+        std::cout.write(raw.data(), bytes_to_write);
+        current_block += blocks_to_read;
+        blocks_remaining -= blocks_to_read;
+        size_remaining -= bytes_to_write;
       }
-      std::cout << raw;
-      size_remaining -= raw.size();
       kv = filesystem.upper_bound(kv.key, get_paddr);
     }
 
