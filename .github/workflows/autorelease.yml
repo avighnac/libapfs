@@ -191,7 +191,7 @@ jobs:
         name: apfs-macos-x86-64
     - name: Set necessary variables
       run: |
-        TAG=$(curl -s "https://api.github.com/repos/avighnac/libapfs/releases/latest" | jq -r '.tag_name')
+        TAG="0.1"
         SUFFIX=$(
           curl -s "https://api.github.com/repos/avighnac/libapfs/tags?per_page=100" |
           jq -r --arg base "$TAG" '
