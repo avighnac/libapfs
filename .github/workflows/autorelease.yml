@@ -30,7 +30,7 @@ jobs:
         mv build/src/cli/apfs build/src/apfs-linux-x86-64
 
         mkdir -p package/include
-        cp -R src/lib/include/. package/include/
+        cp -R include/. package/include/
         cp build/src/lib/libapfs.a package/
 
         (
@@ -71,7 +71,7 @@ jobs:
         mv build/src/cli/apfs build/src/apfs-linux-arm64
 
         mkdir -p package/include
-        cp -R src/lib/include/. package/include/
+        cp -R include/. package/include/
         cp build/src/lib/libapfs.a package/
 
         (
@@ -115,7 +115,7 @@ jobs:
         Move-Item build/src/cli/apfs.exe build/src/apfs-windows-x86-64.exe
 
         New-Item -ItemType Directory -Force package/include
-        Copy-Item src/lib/include/* package/include -Recurse
+        Copy-Item include/* package/include -Recurse
         Copy-Item build/src/lib/libapfs.a package/
 
         Compress-Archive `
@@ -158,7 +158,7 @@ jobs:
         Move-Item build/src/cli/apfs.exe build/src/apfs-windows-arm64.exe
 
         New-Item -ItemType Directory -Force package/include
-        Copy-Item src/lib/include/* package/include -Recurse
+        Copy-Item include/* package/include -Recurse
         Copy-Item build/src/lib/libapfs.a package/
 
         Compress-Archive `
@@ -197,7 +197,7 @@ jobs:
         mv build/src/cli/apfs build/src/apfs-macos-arm64
 
         mkdir -p package/include
-        cp -R src/lib/include/. package/include/
+        cp -R include/. package/include/
         cp build/src/lib/libapfs.a package/
 
         (
@@ -237,7 +237,7 @@ jobs:
         mv build/src/cli/apfs build/src/apfs-macos-x86-64
 
         mkdir -p package/include
-        cp -R src/lib/include/. package/include/
+        cp -R include/. package/include/
         cp build/src/lib/libapfs.a package/
 
         (
