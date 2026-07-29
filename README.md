@@ -10,16 +10,31 @@ A (for now?) read-only Apple File System (APFS) implementation.
 
 # Installation
 
-To install the `apfs` command-line executable on Linux or macOS, run:
+## Linux and macOS
+
+To install the command-line utility:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/avighnac/libapfs/refs/heads/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/avighnac/libapfs/refs/heads/main/install.sh | bash -s -- --cli
 ```
 
-For windows users, pick the version you want from `https://github.com/avighnac/libapfs/releases` and download the .exe file.
+To install the static library (`libapfs.a` and headers):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/avighnac/libapfs/refs/heads/main/install.sh | bash -s -- --lib
+```
+
+## Windows
+
+Download the appropriate executable or library package for your architecture from here:
+
+```text
+https://github.com/avighnac/libapfs/releases
+```
 
 # Compilation
 
-As of now, if you want to use the library, you will need to compile from source yourself. Doing this is really easy, though. 
+Compiling from source is pretty simple:
 
 ```
 git clone https://github.com/avighnac/libapfs

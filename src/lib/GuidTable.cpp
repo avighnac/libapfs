@@ -2,6 +2,7 @@
 #include <cassert>
 #include <iomanip>
 #include <libapfs/util.hpp>
+#include <sstream>
 
 GuidTable::GuidTable(const BlockReader &_reader) : reader(_reader, false) {
   reader.BLOCK_SIZE = 512;

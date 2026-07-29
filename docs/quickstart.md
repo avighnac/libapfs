@@ -119,7 +119,7 @@ Again, let's inspect `apfs::partition`:
 class partition : public partition_info_t {
   // private irrelevant fields
 public:
-  // Number of blocksx
+  // Number of blocks
   uint64_t num_blocks;
   // Size of each block
   uint32_t block_size;

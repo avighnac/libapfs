@@ -3,7 +3,10 @@ set -euo pipefail
 
 REPO="avighnac/libapfs"
 BIN_NAME="apfs"
-INSTALL_PATH="/usr/local/bin/$BIN_NAME"
+
+BIN_INSTALL_PATH="/usr/local/bin/$BIN_NAME"
+INCLUDE_INSTALL_PATH="/usr/local/include"
+LIB_INSTALL_PATH="/usr/local/lib"
 
 RED="$(printf '\033[31m')"
 GREEN="$(printf '\033[32m')"
@@ -22,12 +25,50 @@ need() {
   }
 }
 
+usage() {
+  printf "Usage: %s --cli | --lib\n" "$0"
+  printf "\n"
+  printf "  --cli    Install the apfs command-line executable\n"
+  printf "  --lib    Install libapfs.a and its header files\n"
+}
+
+if [ "$#" -ne 1 ]; then
+  usage
+  exit 1
+fi
+
+case "$1" in
+  --cli)
+    MODE="cli"
+    ;;
+  --lib)
+    MODE="lib"
+    ;;
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  *)
+    err "unknown option: $1"
+    usage
+    exit 1
+    ;;
+esac
+
 need curl
 need uname
 need chmod
 need mktemp
 need sed
-need grep
+need head
+need rm
+need mv
+need mkdir
+
+if [ "$MODE" = "lib" ]; then
+  need unzip
+  need cp
+fi
 
 OS_RAW="$(uname -s)"
 ARCH_RAW="$(uname -m)"
@@ -50,38 +91,89 @@ case "$ARCH_RAW" in
     ;;
 esac
 
-ASSET_NAME="apfs-$OS-$ARCH"
-
 log "detected platform: $OS / $ARCH"
 
 RELEASES_JSON="$(curl -fsSL "https://api.github.com/repos/$REPO/releases")"
 
-TAG="$(printf '%s\n' "$RELEASES_JSON" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+TAG="$(
+  printf '%s\n' "$RELEASES_JSON" |
+    sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' |
+    head -n1
+)"
 
 if [ -z "$TAG" ]; then
   err "could not determine latest release tag"
   exit 1
 fi
 
+if [ "$MODE" = "cli" ]; then
+  ASSET_NAME="apfs-$OS-$ARCH"
+else
+  ASSET_NAME="libapfs-$OS-$ARCH.zip"
+fi
+
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/$ASSET_NAME"
 
-TMP_FILE="$(mktemp)"
-trap 'rm -f "$TMP_FILE"' EXIT
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+TMP_FILE="$TMP_DIR/$ASSET_NAME"
 
 log "downloading ${BOLD}$ASSET_NAME${RESET} from ${BOLD}$TAG${RESET}"
 
 curl -fsSL "$DOWNLOAD_URL" -o "$TMP_FILE"
-chmod +x "$TMP_FILE"
 
-log "installing to ${BOLD}$INSTALL_PATH${RESET}"
+if [ "$MODE" = "cli" ]; then
+  chmod +x "$TMP_FILE"
 
-if [ -w /usr/local/bin ]; then
-  mv "$TMP_FILE" "$INSTALL_PATH"
+  log "installing to ${BOLD}$BIN_INSTALL_PATH${RESET}"
+
+  if [ -w /usr/local/bin ]; then
+    mv "$TMP_FILE" "$BIN_INSTALL_PATH"
+    chmod 755 "$BIN_INSTALL_PATH"
+  else
+    sudo mkdir -p /usr/local/bin
+    sudo mv "$TMP_FILE" "$BIN_INSTALL_PATH"
+    sudo chmod 755 "$BIN_INSTALL_PATH"
+  fi
+
+  ok "installed command-line executable successfully"
+  printf "\n"
+  "$BIN_INSTALL_PATH"
+
 else
-  sudo mv "$TMP_FILE" "$INSTALL_PATH"
-  sudo chmod 755 "$INSTALL_PATH"
-fi
+  EXTRACT_PATH="$TMP_DIR/extracted"
+  mkdir -p "$EXTRACT_PATH"
+  unzip -q "$TMP_FILE" -d "$EXTRACT_PATH"
 
-ok "installed successfully"
-printf "\n"
-"$INSTALL_PATH"
+  if [ ! -d "$EXTRACT_PATH/include/libapfs" ]; then
+    err "downloaded package does not contain include/libapfs"
+    exit 1
+  fi
+
+  if [ ! -f "$EXTRACT_PATH/libapfs.a" ]; then
+    err "downloaded package does not contain libapfs.a"
+    exit 1
+  fi
+
+  log "installing headers to ${BOLD}$INCLUDE_INSTALL_PATH/libapfs${RESET}"
+  log "installing library to ${BOLD}$LIB_INSTALL_PATH/libapfs.a${RESET}"
+
+  if [ -w /usr/local/include ] && [ -w /usr/local/lib ]; then
+    mkdir -p "$INCLUDE_INSTALL_PATH" "$LIB_INSTALL_PATH"
+
+    rm -rf "$INCLUDE_INSTALL_PATH/libapfs"
+    cp -R "$EXTRACT_PATH/include/libapfs" "$INCLUDE_INSTALL_PATH/"
+
+    cp "$EXTRACT_PATH/libapfs.a" "$LIB_INSTALL_PATH/libapfs.a"
+  else
+    sudo mkdir -p "$INCLUDE_INSTALL_PATH" "$LIB_INSTALL_PATH"
+
+    sudo rm -rf "$INCLUDE_INSTALL_PATH/libapfs"
+    sudo cp -R "$EXTRACT_PATH/include/libapfs" "$INCLUDE_INSTALL_PATH/"
+
+    sudo cp "$EXTRACT_PATH/libapfs.a" "$LIB_INSTALL_PATH/libapfs.a"
+  fi
+
+  ok "installed libapfs successfully"
+fi

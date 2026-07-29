@@ -88,7 +88,7 @@ class partition : public partition_info_t {
   Partition part;
 
 public:
-  // Number of blocksx
+  // Number of blocks
   uint64_t num_blocks;
   // Size of each block
   uint32_t block_size;
