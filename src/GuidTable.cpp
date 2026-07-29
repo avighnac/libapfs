@@ -34,10 +34,10 @@ GuidTable::GuidTable(const std::string &filename) : filename(filename),reader(fi
   }
 }
 
-Apfs GuidTable::read_partition(const std::string &guid) {
+Partition GuidTable::read_partition(const std::string &guid) {
   for (EFI_PARTITION_ENTRY &entry : partitions) {
     if (to_string(entry.UniquePartitionGUID) == guid) {
-      return Apfs(filename, entry.StartingLBA * reader.BLOCK_SIZE);
+      return Partition(filename, entry.StartingLBA * reader.BLOCK_SIZE);
     }
   }
   throw Error("partition with guid " + guid + " does not exist");

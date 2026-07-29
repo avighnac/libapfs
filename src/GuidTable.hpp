@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Apfs.hpp>
+#include <Partition.hpp>
 #include <BlockReader.hpp>
 #include <types.hpp>
 
@@ -9,7 +9,7 @@ struct GuidTable {
   std::vector<EFI_PARTITION_ENTRY> partitions;
 
   GuidTable(const std::string &filename);
-  Apfs read_partition(const std::string &guid);
+  Partition read_partition(const std::string &guid);
 
 private:
   std::string filename;

@@ -1,4 +1,4 @@
-#include <Apfs.hpp>
+#include <Partition.hpp>
 #include <BTree.hpp>
 #include <Error.hpp>
 #include <algorithm>
@@ -6,7 +6,7 @@
 #include <checksum.hpp>
 #include <util.hpp>
 
-Apfs::Apfs(const std::string &filename, uint64_t offset) : reader(filename, true, offset) {
+Partition::Partition(const std::string &filename, uint64_t offset) : reader(filename, true, offset) {
   superblock = reader.read_object<nx_superblock_t>(0);
   // Verify superblock magic
   if (superblock.nx_magic != NX_MAGIC) {

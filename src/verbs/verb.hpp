@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Apfs.hpp>
+#include <Partition.hpp>
 #include <map>
 #include <memory>
 #include <string>

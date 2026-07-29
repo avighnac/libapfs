@@ -1,5 +1,5 @@
-#include <Apfs.hpp>
-#include <ApfsVerb.hpp>
+#include <Partition.hpp>
+#include <PartitionVerb.hpp>
 #include <BlockReader.hpp>
 #include <GuidTable.hpp>
 #include <algorithm>
@@ -37,10 +37,10 @@ static std::string format_size(uint64_t bytes) {
   return oss.str();
 }
 
-struct InfoVerb : ApfsVerb {
-  InfoVerb() : ApfsVerb("info", "Prints information about a " + color::white("partition on a disk")) {}
+struct InfoVerb : PartitionVerb {
+  InfoVerb() : PartitionVerb("info", "Prints information about a " + color::white("partition on a disk")) {}
 
-  int apfs_handler(Apfs &apfs, std::map<std::string, std::string> options) override {
+  int partition_handler(Partition &part, std::map<std::string, std::string> options) override {
     size_t max_label_len = std::max({
         std::string("Number of blocks").size(),
         std::string("Block size").size(),
@@ -48,7 +48,7 @@ struct InfoVerb : ApfsVerb {
         std::string("Volumes").size(),
     });
 
-    for (const auto &spblk : apfs.volumes) {
+    for (const auto &spblk : part.volumes) {
       max_label_len = std::max(max_label_len, std::strlen((const char *)spblk.apfs_volname));
     }
 
@@ -57,16 +57,16 @@ struct InfoVerb : ApfsVerb {
     };
 
     std::cout << color::white("Container") << '\n';
-    print_row("├─ ", "Number of blocks", std::to_string(apfs.superblock.nx_block_count));
-    print_row("├─ ", "Block size", std::to_string(apfs.superblock.nx_block_size) + " bytes");
-    print_row("├─ ", "Physical size", format_size(apfs.superblock.nx_block_count * apfs.superblock.nx_block_size));
-    print_row("└─ ", "Volumes", std::to_string(apfs.volumes.size()));
+    print_row("├─ ", "Number of blocks", std::to_string(part.superblock.nx_block_count));
+    print_row("├─ ", "Block size", std::to_string(part.superblock.nx_block_size) + " bytes");
+    print_row("├─ ", "Physical size", format_size(part.superblock.nx_block_count * part.superblock.nx_block_size));
+    print_row("└─ ", "Volumes", std::to_string(part.volumes.size()));
 
     std::cout << '\n';
     std::cout << color::white("Volumes") << '\n';
-    for (size_t i = 0; i < apfs.volumes.size(); ++i) {
-      const auto &spblk = apfs.volumes[i];
-      print_row(i + 1 == apfs.volumes.size() ? "└─ " : "├─ ", (const char *)spblk.apfs_volname, format_size(spblk.apfs_fs_alloc_count * apfs.container.block.nx_block_size));
+    for (size_t i = 0; i < part.volumes.size(); ++i) {
+      const auto &spblk = part.volumes[i];
+      print_row(i + 1 == part.volumes.size() ? "└─ " : "├─ ", (const char *)spblk.apfs_volname, format_size(spblk.apfs_fs_alloc_count * part.container.block.nx_block_size));
     }
 
     return 0;

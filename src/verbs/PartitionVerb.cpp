@@ -1,10 +1,10 @@
-#include "ApfsVerb.hpp"
+#include "PartitionVerb.hpp"
 
-Apfs ApfsVerb::get_apfs(const std::map<std::string, std::string> &options) {
+Partition PartitionVerb::get_partition(const std::map<std::string, std::string> &options) {
   std::string disk = options.at("_default");
   // If we're reading directly from an APFS partition, we can just return
   if (is_apfs_partition(disk)) {
-    return Apfs(disk);
+    return Partition(disk);
   }
   GuidTable gpt(disk);
   // If we've been supplied the partition, we can also just return
@@ -31,10 +31,10 @@ Apfs ApfsVerb::get_apfs(const std::map<std::string, std::string> &options) {
   return gpt.read_partition(to_string(partition.UniquePartitionGUID));
 }
 
-int ApfsVerb::handler(std::map<std::string, std::string> options) {
+int PartitionVerb::handler(std::map<std::string, std::string> options) {
   if (!options.contains("_default")) {
     throw Error("missing disk file");
   }
-  Apfs apfs = get_apfs(options);
-  return apfs_handler(apfs, options);
+  Partition part = get_partition(options);
+  return partition_handler(part, options);
 }

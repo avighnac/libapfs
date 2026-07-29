@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(apfs CXX)
 
 file(GLOB VERB_SOURCES verbs/*.cpp)
-add_executable(apfs main.cpp checksum.cpp Apfs.cpp BlockReader.cpp BTree.cpp util.cpp ${VERB_SOURCES} GuidTable.cpp)
+add_executable(apfs main.cpp checksum.cpp Partition.cpp BlockReader.cpp BTree.cpp util.cpp ${VERB_SOURCES} GuidTable.cpp)
 
 if (APPLE)
   target_link_options(apfs PRIVATE -static-libstdc++ -static-libgcc)
