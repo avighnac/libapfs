@@ -33,19 +33,6 @@ struct LsVerb : VolumeVerb {
     omap_phys_t omap = reader.read_object<omap_phys_t>(volume.apfs_omap_oid);
     BTree<omap_key_t> object_map = reader.read_btree<omap_key_t>(omap.om_tree_oid);
 
-    // auto dfs = [&](auto &&self, BTree<omap_key_t> node) {
-    //   if (node.is_leaf()) {
-    //     for (auto &[_k, _v] : node.key_values) {
-    //       std::cout << "(" << cast<omap_key_t>(_k).ok_oid << ", " << cast<omap_key_t>(_k).ok_xid << ")\n";
-    //     }
-    //     return;
-    //   }
-    //   for (auto &[k, v] : node.children()) {
-    //     self(self, reader.read_btree<omap_key_t>(v.binv_child_oid));
-    //   }
-    // };
-    // dfs(dfs, object_map);
-
     auto identity = [&](const oid_t &oid) { return paddr_t(oid); };
     // Virtual object => physical address by reading the object_map BTree
     auto get_paddr = [&](const oid_t &oid) {
@@ -84,6 +71,7 @@ struct LsVerb : VolumeVerb {
 
     // Find the right directory
     uint64_t cur_dir_obj_id = ROOT_DIR_INO_NUM; // root object id
+    bool is_directory = true;
     for (std::string &dir : dirs) {
       j_drec_hashed_key_t key;
       key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << OBJ_TYPE_SHIFT) | cur_dir_obj_id;
@@ -91,9 +79,17 @@ struct LsVerb : VolumeVerb {
       key.name_len_and_hash = (drec_key_hash(key.name) << 10) | (key.name.length() + 1);
 
       auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
-      assert(kv.key == to_bytes(key));
+      if (kv.key != to_bytes(key)) {
+        throw Error("directory does not exist");
+      }
 
-      cur_dir_obj_id = cast<j_drec_val_t>(kv.val).file_id;
+      j_drec_val_t val = cast<j_drec_val_t>(kv.val);
+      cur_dir_obj_id = val.file_id;
+      is_directory = val.flags & DT_DIR;
+    }
+
+    if (!is_directory) {
+      throw Error("not a directory");
     }
 
     // Now print the files in the directory

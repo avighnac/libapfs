@@ -102,6 +102,7 @@ struct CatVerb : VolumeVerb {
 
     // Navigate to the file
     uint64_t inode_num = ROOT_DIR_INO_NUM; // root object id
+    bool is_file = false;
     for (std::string &dir : dirs) {
       j_drec_hashed_key_t key;
       key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << OBJ_TYPE_SHIFT) | inode_num;
@@ -109,9 +110,17 @@ struct CatVerb : VolumeVerb {
       key.name_len_and_hash = (drec_key_hash(key.name) << 10) | (key.name.length() + 1);
 
       auto kv = filesystem.lower_bound(to_bytes(key), get_paddr);
-      assert(kv.key == to_bytes(key));
+      if (kv.key != to_bytes(key)) {
+        throw Error("file not found");
+      }
 
-      inode_num = cast<j_drec_val_t>(kv.val).file_id;
+      j_drec_val_t val = cast<j_drec_val_t>(kv.val);
+      inode_num = val.file_id;
+      is_file = val.flags & DT_REG;
+    }
+
+    if (!is_file) {
+      throw Error("not a file");
     }
 
     // Find the inode
