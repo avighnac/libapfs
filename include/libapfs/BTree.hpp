@@ -1,13 +1,13 @@
 #pragma once
 
-#include <BlockReader.hpp>
+#include "BlockReader.hpp"
+#include "types/types.hpp"
+#include "util.hpp"
 #include <algorithm>
 #include <cassert>
 #include <functional>
 #include <limits>
 #include <type_traits>
-#include <types.hpp>
-#include <util.hpp>
 #include <vector>
 
 template <typename Key, typename Val>
@@ -33,7 +33,7 @@ class BTree {
   template <typename read_key, typename read_val>
   void parse_node(const btree_node_phys_t &node);
 
-  const BlockReader &reader;
+  BlockReader reader;
 
   Compare _lt;
   bool lt(const bytes_t &l, const bytes_t &r) const {

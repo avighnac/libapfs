@@ -8,6 +8,27 @@ A (for now?) read-only Apple File System (APFS) implementation.
 
 ![watch me pls](WATCHME.gif)
 
+# Installation
+
+To install the `apfs` command-line executable on Linux or macOS, run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/avighnac/libapfs/refs/heads/main/install.sh | bash
+```
+
+For windows users, pick the version you want from `https://github.com/avighnac/libapfs/releases` and download the .exe file.
+
+# Compilation
+
+As of now, if you want to use the library, you will need to compile from source yourself. Doing this is really easy, though. 
+
+```
+git clone https://github.com/avighnac/libapfs
+cd libapfs
+
+cmake -S. -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
 # Structure
 
 All the source code is contained in `src/`. The `src/types` folder contains the structs that make up an APFS formatted disk, copy-pasted from Apple's official documentation (along with some custom types at the bottom of some files).
@@ -63,14 +84,27 @@ Volumes
 └─ Recovery          772 MB
 ```
 
-# Installation
+# Library
 
-To install the `apfs` command-line executable on Linux or macOS, run:
-```bash
-curl -fsSL https://raw.githubusercontent.com/avighnac/libapfs/refs/heads/main/install.sh | bash
+Here's a quick example of how the library works:
+```cpp
+#include <iostream>
+#include <libapfs/apfs.hpp>
+
+int main() {
+  std::string path = "/path/to/disk";
+  apfs::disk disk(path);
+  apfs::partition part = disk.load_partition(disk.partitions[1]);
+  apfs::volume &vol = part.volumes[0];
+
+  apfs::directory_entry dirent = vol.navigate_to("/");
+  for (auto &ch : dirent.list_children()) {
+    std::cout << ch.name << '\n';
+  }
+}
 ```
 
-For windows users, pick the version you want from `https://github.com/avighnac/libapfs/releases` and download the .exe file.
+Complete and comprehensive documentation can be found in `docs/`.
 
 # Resources
 

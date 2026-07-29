@@ -1,16 +1,13 @@
 #pragma once
 
-#include <Partition.hpp>
-#include <BlockReader.hpp>
-#include <types.hpp>
+#include <libapfs/Partition.hpp>
+#include <libapfs/BlockReader.hpp>
+#include <libapfs/types/types.hpp>
 
 struct GuidTable {
   BlockReader reader;
   std::vector<EFI_PARTITION_ENTRY> partitions;
 
-  GuidTable(const std::string &filename);
+  GuidTable(const BlockReader &reader);
   Partition read_partition(const std::string &guid);
-
-private:
-  std::string filename;
 };

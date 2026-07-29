@@ -1,12 +1,12 @@
-#include <Partition.hpp>
-#include <BTree.hpp>
-#include <Error.hpp>
+#include <libapfs/Partition.hpp>
+#include <libapfs/BTree.hpp>
+#include <libapfs/Error.hpp>
 #include <algorithm>
 #include <cassert>
-#include <checksum.hpp>
-#include <util.hpp>
+#include <libapfs/checksum.hpp>
+#include <libapfs/util.hpp>
 
-Partition::Partition(const std::string &filename, uint64_t offset) : reader(filename, true, offset) {
+Partition::Partition(const BlockReader &_reader, uint64_t offset) : reader(_reader, true, offset) {
   superblock = reader.read_object<nx_superblock_t>(0);
   // Verify superblock magic
   if (superblock.nx_magic != NX_MAGIC) {

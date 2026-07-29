@@ -2,21 +2,9 @@
 
 #include <cstring>
 #include <string>
-#include <types.hpp>
+#include "types/types.hpp"
 
 bool compare_j_key_t(const bytes_t &_l, const bytes_t &_r);
-
-namespace color {
-std::string red(const std::string &s);
-std::string green(const std::string &s);
-std::string yellow(const std::string &s);
-std::string blue(const std::string &s);
-std::string magenta(const std::string &s);
-std::string cyan(const std::string &s);
-std::string white(const std::string &s);
-std::string bold(const std::string &s);
-std::string dim(const std::string &s);
-} // namespace color
 
 // (assuming trivially copyable: types with no `std::string` at the end)
 // Casts raw bytes stored in a `byte_t` to a `T`.
@@ -83,8 +71,6 @@ bytes_t to_bytes(const T &x) {
     return b_to_bytes(x);
   }
 }
-
-std::string to_string(const efi_guid_t &guid);
 
 // Essentially, whether or not there's an `nx_superblock_t` at block 0
 bool is_apfs_partition(const std::string &filename);

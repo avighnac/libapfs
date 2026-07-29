@@ -302,6 +302,12 @@ struct x_field_t {
   uint16_t x_size;
 } __attribute__((packed));
 
+struct x_field {
+  uint8_t type;
+  uint8_t flags;
+  bytes_t data;
+};
+
 // The key half of a sibling-link record.
 struct j_sibling_key_t : j_key_t {
   uint64_t sibling_id;

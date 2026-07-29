@@ -1,11 +1,8 @@
-#include <Partition.hpp>
-#include <Error.hpp>
-#include <checksum.hpp>
+#include <libapfs/Error.hpp>
 #include <iostream>
 #include <map>
 #include <set>
 #include <string>
-#include <types.hpp>
 #include <util.hpp>
 #include <vector>
 #include <verb.hpp>
