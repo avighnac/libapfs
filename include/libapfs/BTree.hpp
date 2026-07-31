@@ -244,6 +244,10 @@ key_value_t BTree<KeyType, Compare>::upper_bound(const bytes_t &k, const Convert
 template <typename KeyType, typename Compare>
 template <typename Convert>
 key_value_t BTree<KeyType, Compare>::prev(const bytes_t &k, const Convert &convert) {
+  // key_values[0].key is the absolute minimum key that will occur in the tree
+  if (lt(k, key_values[0].key)) {
+    return SENTINEL;
+  }
   // Finds the current range
   int idx = std::find_if(key_values.begin(), key_values.end(), [&](const key_value_t &kv) { return lt(k, kv.key); }) - key_values.begin() - 1;
   assert(0 <= idx && idx < key_values.size());
