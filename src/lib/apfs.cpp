@@ -172,29 +172,38 @@ std::vector<directory_entry> directory_entry::list_children() {
   return children;
 }
 
+inode_t::inode_t(const _j_inode_val_t &raw, std::vector<x_field> &xfields) : _j_inode_val_t(raw), xfields(xfields) {
+  for (x_field &field : xfields) {
+    if (field.type == INO_EXT_TYPE_DSTREAM) {
+      size = cast<j_dstream_t>(field.data).size;
+      break;
+    }
+  }
+}
+
+inode_t directory_entry::load_inode() const {
+  j_inode_key_t inode_key;
+  inode_key.obj_id_and_type = (uint64_t(APFS_TYPE_INODE) << OBJ_TYPE_SHIFT) | inode_num;
+  auto inode_kv = vol.filesystem.lower_bound(to_bytes(inode_key), [&](const oid_t &oid) { return vol.get_paddr(oid); });
+  j_inode_val_t inode_val = cast<j_inode_val_t>(inode_kv.val);
+
+  std::vector<x_field> xfields = reader.parse_xfields(inode_val.xfields);
+  return {inode_val, xfields};
+}
+
 void directory_entry::read_file(std::ostream &os) {
   if (type != DIRENT_FILE) {
     throw Error("\"" + name + "\" is not a file");
   }
 
-  // Find the inode
-  j_inode_key_t inode_key;
-  inode_key.obj_id_and_type = (uint64_t(APFS_TYPE_INODE) << OBJ_TYPE_SHIFT) | inode_num;
-  auto inode_kv = vol.filesystem.lower_bound(to_bytes(inode_key), [&](const oid_t &oid) { return vol.get_paddr(oid); });
-  j_inode_val_t inode_val = cast<j_inode_val_t>(inode_kv.val);
+  inode_t inode_val = load_inode();
 
   // This works because:
   // this private_id == the object id of the file extents corresponding to this file
   uint64_t private_id = inode_val.private_id;
 
   // Get size of file
-  uint64_t size_remaining = 0;
-  std::vector<x_field> xfields = reader.parse_xfields(inode_val.xfields);
-  for (x_field &field : xfields) {
-    if (field.type == INO_EXT_TYPE_DSTREAM) {
-      size_remaining = cast<j_dstream_t>(field.data).size;
-    }
-  }
+  uint64_t size_remaining = inode_val.size;
 
   // Find file extents
   j_file_extent_key_t key;

@@ -57,7 +57,7 @@ public:
   BTree<KeyType, Compare> read_btree(uint64_t block_num, Compare lt) const;
 
   // Parse extended fields (xfields)
-  std::vector<x_field> parse_xfields(bytes_t &data);
+  std::vector<x_field> parse_xfields(bytes_t &data) const;
 
   // Filename of the data stream, and whether or not we're reading from
   // an APFS partition directly (the other option is a disk, with an MBR)

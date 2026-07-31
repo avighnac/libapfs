@@ -40,6 +40,13 @@ enum directory_entry_type {
 
 class volume;
 
+struct inode_t : public _j_inode_val_t {
+  std::vector<x_field> xfields;
+  size_t size;
+
+  inode_t(const _j_inode_val_t &raw, std::vector<x_field> &xfields);
+};
+
 class directory_entry {
   uint64_t inode_num;
   volume &vol;
@@ -54,9 +61,13 @@ public:
   // List the files in this directory iff it is a directory (DIRENT_DIR)
   // If it is something else, like a file, an error will be thrown
   std::vector<directory_entry> list_children();
+
   // Read the file pointed to by this entry iff it is a file (DIRENT_FILE)
   // If it is something else, like a directory, an error will be thrown
   void read_file(std::ostream &os);
+
+  // Load the inode for the directory entry
+  inode_t load_inode() const;
 };
 
 class volume {

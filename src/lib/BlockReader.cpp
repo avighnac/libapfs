@@ -30,7 +30,7 @@ void BlockReader::set_apfs_block_size() {
 
 BlockReader::BlockReader(std::string filename, bool apfs, uint64_t offset) : filename(filename), offset(offset) {
   f = std::make_shared<FILE *>(fopen(filename.data(), "rb"));
-  if (!f) {
+  if (*f == NULL) {
     throw Error("could not open file " + filename + ": " + std::system_category().message(errno));
   }
 
@@ -79,15 +79,12 @@ btree_node_phys_t BlockReader::read_object(uint64_t block_num) const {
 }
 
 // Parse extended fields (xfields)
-std::vector<x_field> BlockReader::parse_xfields(bytes_t &data) {
+std::vector<x_field> BlockReader::parse_xfields(bytes_t &data) const {
   char *raw = data.data();
   xf_blob_t blob = *(xf_blob_t *)raw;
 
   auto advance = [&raw, &data](size_t cnt) {
-    raw += cnt;
-    int mod = ((raw - (data.data() + sizeof(xf_blob_t))) % 8);
-    if (mod)
-      raw += 8 - mod;
+    raw = (char *)(((raw + cnt - (data.data() + sizeof(xf_blob_t))) << 3) >> 3);
   };
 
   raw += sizeof(xf_blob_t);

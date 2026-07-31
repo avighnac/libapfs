@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "constants.hpp"
+#include "g_types.hpp"
+#include "typedefs.hpp"
+#include <cstdint>
+
 struct apfs_modified_by_t {
   uint8_t id[APFS_MODIFIED_NAMELEN];
   uint64_t timestamp;
@@ -85,22 +90,37 @@ struct j_val_t {};
 
 // The value half of an inode record.
 struct _j_inode_val_t : j_val_t {
+  // The identifier of the file system record for the parent directory.
   uint64_t parent_id;
+  // The object identifier used by this fileʼs data stream.
   uint64_t private_id;
+  // The time that this record was created.
   uint64_t create_time;
+  // The time that this record was last modified.
   uint64_t mod_time;
+  // The time that this recordʼs attributes were last modified.
   uint64_t change_time;
+  // The time that this record was last accessed.
   uint64_t access_time;
+  // The inodeʼs flags.
   uint64_t internal_flags;
   union {
+    // The number of directory entries. This union field is valid only if the inode is a directory.
     int32_t nchildren;
+    // The number of hard links whose target is this inode. This union field is valid only if the inode isnʼt a directory.
     int32_t nlink;
   };
+  // The default protection class for this inode.
   cp_key_class_t default_protection_class;
+  // A monotonically increasing counter thatʼs incremented each time this inode or its data is modified.
   uint32_t write_generation_counter;
+  // The inodeʼs BSD flags.
   uint32_t bsd_flags;
+  // The user identifier of the inodeʼs owner.
   uid_t owner;
+  // The group identifier of the inodeʼs group.
   gid_t group;
+  // The fileʼs mode.
   apfs_mode_t mode;
   uint16_t pad1;
   uint64_t uncompressed_size;
