@@ -24,7 +24,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        cmake -S . -B build -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True
         cmake --build build
 
         mv build/src/cli/apfs build/src/apfs-linux-x86-64
@@ -65,7 +65,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        cmake -S . -B build -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True
         cmake --build build
 
         mv build/src/cli/apfs build/src/apfs-linux-arm64
@@ -106,7 +106,7 @@ jobs:
         $toolroot = Join-Path $PWD "mingw64"
 
         cmake -S . -B build -G "MinGW Makefiles" `
-          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True `
           -DCMAKE_C_COMPILER="$toolroot/bin/gcc.exe" `
           -DCMAKE_CXX_COMPILER="$toolroot/bin/g++.exe"
 
@@ -149,7 +149,7 @@ jobs:
         $toolroot = Join-Path $PWD "llvm-mingw-20260311-ucrt-aarch64"
 
         cmake -S . -B build -G "MinGW Makefiles" `
-          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True `
           -DCMAKE_C_COMPILER="$toolroot/bin/clang.exe" `
           -DCMAKE_CXX_COMPILER="$toolroot/bin/clang++.exe"
 
@@ -188,7 +188,7 @@ jobs:
         GXX="$(find "$(brew --prefix gcc)/bin" -maxdepth 1 -type f -name 'g++-[0-9]*' | head -1)"
 
         cmake -S . -B build \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True \
           -DCMAKE_C_COMPILER="$GCC" \
           -DCMAKE_CXX_COMPILER="$GXX"
 
@@ -228,7 +228,7 @@ jobs:
         GXX="$(find "$(brew --prefix gcc)/bin" -maxdepth 1 -type f -name 'g++-[0-9]*' | head -1)"
 
         cmake -S . -B build \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True \
           -DCMAKE_C_COMPILER="$GCC" \
           -DCMAKE_CXX_COMPILER="$GXX"
 
