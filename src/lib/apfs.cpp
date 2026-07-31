@@ -1,8 +1,8 @@
-#include <algorithm>
-#include <libapfs/Error.hpp>
 #include <GuidTable.hpp>
-#include <libapfs/Partition.hpp>
+#include <algorithm>
 #include <crc32c.hpp>
+#include <libapfs/Error.hpp>
+#include <libapfs/Partition.hpp>
 #include <libapfs/apfs.hpp>
 
 static std::array<uint8_t, 16> _uuid_to_array(unsigned char uuid[]) {
@@ -191,19 +191,25 @@ inode_t directory_entry::load_inode() const {
   return {inode_num, inode_val, xfields};
 }
 
-void directory_entry::read_file(std::ostream &os, off_t offset, size_t size) {
+void directory_entry::read_file(std::ostream &os, off_t offset, ssize_t size) {
   if (type != DIRENT_FILE) {
     throw Error("\"" + name + "\" is not a file");
   }
+  if (size < -1) {
+    throw Error("invalid size");
+  }
 
   inode_t inode_val = load_inode();
+  if (offset < 0 || offset >= inode_val.size) {
+    throw Error("invalid offset");
+  }
 
   // This works because:
   // this private_id == the object id of the file extents corresponding to this file
   uint64_t private_id = inode_val.private_id;
 
   // Get size of file
-  uint64_t size_remaining = size ? size : inode_val.size;
+  uint64_t size_remaining = size != -1 ? std::min(size, (ssize_t)(inode_val.size - offset)) : inode_val.size - offset;
 
   // Find file extents
   j_file_extent_key_t key;
@@ -212,11 +218,18 @@ void directory_entry::read_file(std::ostream &os, off_t offset, size_t size) {
   auto kv = vol.filesystem.upper_bound(to_bytes(key), [&](const oid_t &oid) { return vol.get_paddr(oid); });
   kv = vol.filesystem.prev(kv.key, [&](const oid_t &oid) { return vol.get_paddr(oid); });
 
-  while (kv != vol.filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_FILE_EXTENT) {
+  bool first = true;
+  uint64_t skip_bytes;
+  while (size_remaining && kv != vol.filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_FILE_EXTENT) {
     j_file_extent_val_t val = cast<j_file_extent_val_t>(kv.val);
 
     uint64_t addr = cast<j_file_extent_key_t>(kv.key).logical_addr;
     uint64_t len = val.len_and_flags & J_FILE_EXTENT_LEN_MASK;
+
+    if (first) {
+      first = false;
+      skip_bytes = offset - addr;
+    }
 
     // We don't know the max size of a file extent so we read it in chunks of at most 4MB
     constexpr size_t buffer_size = 4 * 1024 * 1024;
@@ -227,15 +240,22 @@ void directory_entry::read_file(std::ostream &os, off_t offset, size_t size) {
     while (blocks_remaining > 0 && size_remaining > 0) {
       size_t max_blocks_per_read = std::max(size_t(1), buffer_size / reader.BLOCK_SIZE);
       size_t blocks_to_read = std::min(blocks_remaining, max_blocks_per_read);
-  
       bytes_t raw = reader.read_blocks(current_block, blocks_to_read);
-      size_t bytes_to_write = std::min(raw.size(), size_t(size_remaining));
-      os << raw;
+      if (skip_bytes >= raw.size()) {
+        skip_bytes -= raw.size();
+      } else {
+        size_t begin = skip_bytes;
+        skip_bytes = 0;
+        size_t available = raw.size() - begin;
+        size_t bytes_to_write = std::min(available, size_t(size_remaining));
+        os << raw.substr(begin, bytes_to_write);
+        size_remaining -= bytes_to_write;
+      }
 
       current_block += blocks_to_read;
       blocks_remaining -= blocks_to_read;
-      size_remaining -= bytes_to_write;
     }
+
     kv = vol.filesystem.upper_bound(kv.key, [&](const oid_t &oid) { return vol.get_paddr(oid); });
   }
 }
