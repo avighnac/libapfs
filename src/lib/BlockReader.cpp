@@ -1,7 +1,7 @@
-#include <libapfs/BlockReader.hpp>
 #include <cassert>
-#include <memory>
+#include <libapfs/BlockReader.hpp>
 #include <libapfs/util.hpp>
+#include <memory>
 
 // Read a block and return its raw bytes
 bytes_t BlockReader::read_block(uint64_t block_num) const {
@@ -84,7 +84,10 @@ std::vector<x_field> BlockReader::parse_xfields(bytes_t &data) const {
   xf_blob_t blob = *(xf_blob_t *)raw;
 
   auto advance = [&raw, &data](size_t cnt) {
-    raw = (char *)(((raw + cnt - (data.data() + sizeof(xf_blob_t))) << 3) >> 3);
+    raw += cnt;
+    int mod = ((raw - (data.data() + sizeof(xf_blob_t))) % 8);
+    if (mod)
+      raw += 8 - mod;
   };
 
   raw += sizeof(xf_blob_t);
