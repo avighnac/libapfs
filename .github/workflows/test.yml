@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-macos-arm64:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install GCC
+        run: brew install gcc
+
+      - name: Configure
+        run: |
+          GCC="$(find "$(brew --prefix gcc)/bin" -maxdepth 1 -type f -name 'gcc-[0-9]*' | head -1)"
+          GXX="$(find "$(brew --prefix gcc)/bin" -maxdepth 1 -type f -name 'g++-[0-9]*' | head -1)"
+
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="$GCC" \
+            -DCMAKE_CXX_COMPILER="$GXX"
+
+      - name: Build tests
+        run: cmake --build build --target test --parallel
+
+      - name: Run tests
+        run: ./build/tests/test

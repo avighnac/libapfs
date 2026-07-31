@@ -203,7 +203,7 @@ void directory_entry::read_file(std::ostream &os, off_t offset, size_t size) {
   uint64_t private_id = inode_val.private_id;
 
   // Get size of file
-  uint64_t size_remaining = size == -1 ? inode_val.size : size;
+  uint64_t size_remaining = size ? size : inode_val.size;
 
   // Find file extents
   j_file_extent_key_t key;

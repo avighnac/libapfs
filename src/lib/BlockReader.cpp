@@ -7,14 +7,14 @@
 bytes_t BlockReader::read_block(uint64_t block_num) const {
   fseek(*f, block_num * BLOCK_SIZE + offset, SEEK_SET);
   bytes_t data(BLOCK_SIZE, 0);
-  fread((char *)data.data(), BLOCK_SIZE, 1, *f) == 1;
+  fread((char *)data.data(), BLOCK_SIZE, 1, *f);
   return data;
 }
 
 bytes_t BlockReader::read_blocks(uint64_t block_num, uint64_t num_blocks) const {
   fseek(*f, block_num * BLOCK_SIZE + offset, SEEK_SET);
   bytes_t data(num_blocks * BLOCK_SIZE, 0);
-  fread((char *)data.data(), BLOCK_SIZE, num_blocks, *f) == num_blocks;
+  fread((char *)data.data(), BLOCK_SIZE, num_blocks, *f);
   return data;
 }
 

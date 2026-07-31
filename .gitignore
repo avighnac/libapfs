@@ -1,6 +1,7 @@
 build/
 *.out
-*.dmg
+test_apfs.dmg
 *.dSYM
 .vscode/
 *.DS_Store
+.cmake-deps/

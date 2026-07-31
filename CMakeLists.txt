@@ -6,7 +6,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(src/cli)
-add_subdirectory(src/lib)
+# Keep downloaded dependencies outside build/
+set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/.cmake-deps" CACHE PATH "FetchContent dependency directory")
 
-# add_subdirectory(tests)
+add_subdirectory(src/lib)
+add_subdirectory(src/cli)
+add_subdirectory(tests)
