@@ -41,11 +41,11 @@ enum directory_entry_type {
 class volume;
 
 struct inode_t : public _j_inode_val_t {
-  int num;
+  uint64_t num;
   size_t size;
   std::vector<x_field> xfields;
 
-  inode_t(const int inode_num, const _j_inode_val_t &raw, std::vector<x_field> &xfields);
+  inode_t(uint64_t inode_num, const _j_inode_val_t &raw, std::vector<x_field> &xfields);
 };
 
 class directory_entry {
