@@ -172,7 +172,7 @@ std::vector<directory_entry> directory_entry::list_children() {
   return children;
 }
 
-inode_t::inode_t(const _j_inode_val_t &raw, std::vector<x_field> &xfields) : _j_inode_val_t(raw), xfields(xfields) {
+inode_t::inode_t(const inode_t inode_num, const _j_inode_val_t &raw, std::vector<x_field> &xfields) : num(inode_num), _j_inode_val_t(raw), xfields(xfields) {
   for (x_field &field : xfields) {
     if (field.type == INO_EXT_TYPE_DSTREAM) {
       size = cast<j_dstream_t>(field.data).size;
@@ -188,7 +188,7 @@ inode_t directory_entry::load_inode() const {
   j_inode_val_t inode_val = cast<j_inode_val_t>(inode_kv.val);
 
   std::vector<x_field> xfields = reader.parse_xfields(inode_val.xfields);
-  return {inode_val, xfields};
+  return {inode_num, inode_val, xfields};
 }
 
 void directory_entry::read_file(std::ostream &os) {
