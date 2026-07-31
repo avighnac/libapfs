@@ -65,7 +65,7 @@ public:
 
   // Read the file pointed to by this entry iff it is a file (DIRENT_FILE)
   // If it is something else, like a directory, an error will be thrown
-  void read_file(std::ostream &os);
+  void read_file(std::ostream &os, off_t offset = 0, size_t size = -1);
 
   // Load the inode for the directory entry
   inode_t load_inode() const;

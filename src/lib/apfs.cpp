@@ -191,7 +191,7 @@ inode_t directory_entry::load_inode() const {
   return {inode_num, inode_val, xfields};
 }
 
-void directory_entry::read_file(std::ostream &os) {
+void directory_entry::read_file(std::ostream &os, off_t offset, size_t size) {
   if (type != DIRENT_FILE) {
     throw Error("\"" + name + "\" is not a file");
   }
@@ -203,13 +203,14 @@ void directory_entry::read_file(std::ostream &os) {
   uint64_t private_id = inode_val.private_id;
 
   // Get size of file
-  uint64_t size_remaining = inode_val.size;
+  uint64_t size_remaining = size == -1 ? inode_val.size : size;
 
   // Find file extents
   j_file_extent_key_t key;
-  key.logical_addr = 0;
+  key.logical_addr = offset;
   key.obj_id_and_type = (uint64_t(APFS_TYPE_FILE_EXTENT) << OBJ_TYPE_SHIFT) | private_id;
-  auto kv = vol.filesystem.lower_bound(to_bytes(key), [&](const oid_t &oid) { return vol.get_paddr(oid); });
+  auto kv = vol.filesystem.upper_bound(to_bytes(key), [&](const oid_t &oid) { return vol.get_paddr(oid); });
+  kv = vol.filesystem.prev(kv.key, [&](const oid_t &oid) { return vol.get_paddr(oid); });
 
   while (kv != vol.filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_FILE_EXTENT) {
     j_file_extent_val_t val = cast<j_file_extent_val_t>(kv.val);
