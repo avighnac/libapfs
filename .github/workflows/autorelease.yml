@@ -124,7 +124,7 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force package-msvc/include
         Copy-Item include/* package-msvc/include -Recurse
-        Copy-Item build-msvc/src/lib/apfs.lib package-msvc/apfs.lib
+        Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
         Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib -DestinationPath build-msvc/libapfs-windows-x86-64-msvc.zip
 
     - name: Upload executable and library for windows-x86-64
@@ -171,7 +171,7 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force package-msvc/include
         Copy-Item include/* package-msvc/include -Recurse
-        Copy-Item build-msvc/src/lib/apfs.lib package-msvc/apfs.lib
+        Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
         Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib -DestinationPath build-msvc/libapfs-windows-arm64-msvc.zip
 
     - name: Upload executable and library for windows-arm64
