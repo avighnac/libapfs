@@ -26,7 +26,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True
-        cmake --build build
+        cmake --build build --parallel
 
         mv build/src/cli/apfs build/src/apfs-linux-x86-64
 
@@ -68,7 +68,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True
-        cmake --build build
+        cmake --build build --parallel
 
         mv build/src/cli/apfs build/src/apfs-linux-arm64
 
@@ -202,7 +202,7 @@ jobs:
           -DCMAKE_C_COMPILER="$GCC" \
           -DCMAKE_CXX_COMPILER="$GXX"
 
-        cmake --build build
+        cmake --build build --parallel
 
         mv build/src/cli/apfs build/src/apfs-macos-arm64
 
@@ -242,7 +242,7 @@ jobs:
           -DCMAKE_C_COMPILER="$GCC" \
           -DCMAKE_CXX_COMPILER="$GXX"
 
-        cmake --build build
+        cmake --build build --parallel
 
         mv build/src/cli/apfs build/src/apfs-macos-x86-64
 
