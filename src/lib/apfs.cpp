@@ -5,6 +5,7 @@
 #include <libapfs/Error.hpp>
 #include <libapfs/Partition.hpp>
 #include <libapfs/apfs.hpp>
+#include <sstream>
 
 static std::array<uint8_t, 16> _uuid_to_array(unsigned char uuid[]) {
   std::array<uint8_t, 16> ret;
