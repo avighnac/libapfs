@@ -4,6 +4,7 @@
 
 #include "constants.hpp"
 #include "g_types.hpp"
+#include "align_macros.hpp"
 #include "typedefs.hpp"
 #include <cstdint>
 
@@ -14,7 +15,8 @@ struct apfs_modified_by_t {
 };
 
 // Information about how the volume encryption key (VEK) is used to encrypt a file.
-struct wrapped_meta_crypto_state_t {
+apfs_pack_begin
+struct apfs_align(2) wrapped_meta_crypto_state_t {
   uint16_t major_version;
   uint16_t minor_version;
   crypto_flags_t cpflags;
@@ -22,7 +24,8 @@ struct wrapped_meta_crypto_state_t {
   cp_key_os_version_t key_os_version;
   cp_key_revision_t key_revision;
   uint16_t unused;
-} __attribute__((aligned(2), packed));
+} apfs_packed;
+apfs_pack_end
 
 // APFS superblock
 struct apfs_superblock_t {
@@ -77,18 +80,23 @@ struct apfs_superblock_t {
 };
 
 // A header used at the beginning of all file-system keys.
+apfs_pack_begin
 struct j_key_t {
   uint64_t obj_id_and_type;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The key half of a directory-information record.
+apfs_pack_begin
 struct j_inode_key_t : j_key_t {
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // This is a base class for convenience
 struct j_val_t {};
 
 // The value half of an inode record.
+apfs_pack_begin
 struct _j_inode_val_t : j_val_t {
   // The identifier of the file system record for the parent directory.
   uint64_t parent_id;
@@ -124,7 +132,8 @@ struct _j_inode_val_t : j_val_t {
   apfs_mode_t mode;
   uint16_t pad1;
   uint64_t uncompressed_size;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 struct j_inode_val_t : _j_inode_val_t {
   using raw_type = _j_inode_val_t;
   bytes_t xfields;
@@ -137,51 +146,63 @@ struct j_inode_val_t : _j_inode_val_t {
 // } __attribute__((packed));
 
 // The key half of a directory entry record, including a precomputed hash of its name.
+apfs_pack_begin
 struct _j_drec_hashed_key_t : j_key_t {
   uint32_t name_len_and_hash;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 struct j_drec_hashed_key_t : _j_drec_hashed_key_t {
   using raw_type = _j_drec_hashed_key_t;
   std::string name;
 };
 
 // The value half of a directory entry record.
+apfs_pack_begin
 struct _j_drec_val_t : j_val_t {
   uint64_t file_id;
   uint64_t date_added;
   uint16_t flags;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 struct j_drec_val_t : _j_drec_val_t {
   using raw_type = _j_drec_val_t;
   bytes_t xfields;
 };
 
 // The key half of a directory-information record.
+apfs_pack_begin
 struct j_dir_stats_key_t : j_key_t {
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The value half of a directory-information record.
+apfs_pack_begin
 struct j_dir_stats_val_t : j_val_t {
   uint64_t num_children;
   uint64_t total_size;
   uint64_t chained_key;
   uint64_t gen_count;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The key half of an extended attribute record.
+apfs_pack_begin
 struct _j_xattr_key_t : j_key_t {
   uint16_t name_len;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 struct j_xattr_key_t : _j_xattr_key_t {
   using raw_type = _j_xattr_key_t;
   std::string name;
 };
 
 // The value half of an extended attribute record.
+apfs_pack_begin
 struct _j_xattr_val_t : j_val_t {
   uint16_t flags;
   uint16_t xdata_len;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 struct j_xattr_val_t : _j_xattr_val_t {
   using raw_type = _j_xattr_val_t;
   bytes_t xdata;
@@ -262,45 +283,59 @@ enum dir_rec_flags {
 };
 
 // The key half of a physical extent record.
+apfs_pack_begin
 struct j_phys_ext_key_t : j_key_t {
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The value half of a physical extent record.
+apfs_pack_begin
 struct j_phys_ext_val_t : j_val_t {
   uint64_t len_and_kind;
   uint64_t owning_obj_id;
   int32_t refcnt;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The key half of a file extent record.
+apfs_pack_begin
 struct j_file_extent_key_t : j_key_t {
   uint64_t logical_addr;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The value half of a file extent record.
+apfs_pack_begin
 struct j_file_extent_val_t : j_val_t {
   uint64_t len_and_flags;
   uint64_t phys_block_num;
   uint64_t crypto_id;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The key half of a directory-information record.
+apfs_pack_begin
 struct j_dstream_id_key_t : j_key_t {
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The value half of a data stream record.
+apfs_pack_begin
 struct j_dstream_id_val_t : j_val_t {
   uint32_t refcnt;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // Information about a data stream.
-struct j_dstream_t {
+apfs_pack_begin
+struct apfs_align(8) j_dstream_t {
   uint64_t size;
   uint64_t alloced_size;
   uint64_t default_crypto_id;
   uint64_t total_bytes_written;
   uint64_t total_bytes_read;
-} __attribute__((aligned(8), packed));
+} apfs_packed;
+apfs_pack_end
 
 // A data stream for extended attributes.
 struct j_xattr_dstream_t {
@@ -309,18 +344,22 @@ struct j_xattr_dstream_t {
 };
 
 // A collection of extended attributes.
+apfs_pack_begin
 struct xf_blob_t {
   uint16_t xf_num_exts;
   uint16_t xf_used_data;
   uint8_t xf_data[];
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // An extended fieldʼs metadata.
+apfs_pack_begin
 struct x_field_t {
   uint8_t x_type;
   uint8_t x_flags;
   uint16_t x_size;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 struct x_field {
   uint8_t type;
@@ -329,34 +368,45 @@ struct x_field {
 };
 
 // The key half of a sibling-link record.
+apfs_pack_begin
 struct j_sibling_key_t : j_key_t {
   uint64_t sibling_id;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The value half of a sibling-link record.
+apfs_pack_begin
 struct _j_sibling_val_t : j_val_t {
   uint64_t parent_id;
   uint16_t name_len;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 struct j_sibling_val_t : _j_sibling_val_t {
   using raw_type = _j_sibling_val_t;
   std::string name;
 };
 
 // The key half of a sibling-map record.
+apfs_pack_begin
 struct j_sibling_map_key_t : j_key_t {
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The value half of a sibling-map record.
+apfs_pack_begin
 struct j_sibling_map_val_t : j_val_t {
   uint64_t file_id;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The key half of a record containing metadata about a snapshot.
+apfs_pack_begin
 struct j_snap_metadata_key_t : j_key_t {
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // The value half of a record containing metadata about a snapshot.
+apfs_pack_begin
 struct _j_snap_metadata_val_t : j_val_t {
   oid_t extentref_tree_oid;
   oid_t sblock_oid;
@@ -366,37 +416,44 @@ struct _j_snap_metadata_val_t : j_val_t {
   uint32_t extentref_tree_type;
   uint32_t flags;
   uint16_t name_len;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 struct j_snap_metadata_val_t : _j_snap_metadata_val_t {
   using raw_type = _j_snap_metadata_val_t;
   std::string name;
 };
 
 // The key half of a snapshot name record.
+apfs_pack_begin
 struct _j_snap_name_key_t : j_key_t {
   uint16_t name_len;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 struct j_snap_name_key_t : _j_snap_name_key_t {
   using raw_type = _j_snap_name_key_t;
   std::string name;
 };
 
+apfs_pack_begin
 struct j_snap_name_val_t : j_val_t {
   xid_t snap_xid;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 enum snap_meta_flags {
   SNAP_META_PENDING_DATALESS = 0x00000001,
   SNAP_META_MERGE_IN_PROGRESS = 0x00000002,
 };
 
+apfs_pack_begin
 struct snap_meta_ext_t {
   uint32_t sme_version;
   uint32_t sme_flags;
   xid_t sme_snap_xid;
   uuid_t sme_uuid;
   uint64_t sme_token;
-} __attribute__((packed));
+} apfs_packed;
+apfs_pack_end
 
 // Additional metadata about snapshots.
 struct snap_meta_ext_obj_phys_t {

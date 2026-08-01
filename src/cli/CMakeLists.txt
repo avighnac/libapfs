@@ -12,7 +12,9 @@ add_executable(apfs
 
 target_link_libraries(apfs PRIVATE libapfs)
 
-target_compile_options(apfs PRIVATE -Wno-multichar)
+if(NOT MSVC)
+  target_compile_options(apfs PRIVATE -Wno-multichar)
+endif()
 
 target_include_directories(apfs PRIVATE
   .

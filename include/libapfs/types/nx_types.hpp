@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "align_macros.hpp"
 #include "types.hpp"
 
 // Indexes into a container superblockʼs array of counters.
@@ -85,13 +86,14 @@ struct checkpoint_map_phys_t {
 };
 
 // A range of physical addresses that data is being moved into.
+apfs_pack_begin
 struct evict_mapping_val_t {
   // The address where the destination starts.
   paddr_t dst_paddr;
   // The number of blocks being moved.
   uint64_t len;
-} __attribute__((packed));
-
+} apfs_packed;
+apfs_pack_end
 
 // CUSTOM TYPES
 

@@ -23,3 +23,8 @@ typedef uint32_t gid_t;
 typedef uint16_t apfs_mode_t;
 
 typedef std::string bytes_t;
+
+#ifdef _MSC_VER
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif

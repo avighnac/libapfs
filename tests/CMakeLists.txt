@@ -18,7 +18,9 @@ file(GLOB test_sources CONFIGURE_DEPENDS "*.cpp")
 
 add_executable(test ${test_sources})
 
-target_compile_options(test PRIVATE -Wno-multichar)
+if(NOT MSVC)
+  target_compile_options(test PRIVATE -Wno-multichar)
+endif()
 
 target_include_directories(test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "../include/")
 

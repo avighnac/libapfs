@@ -25,7 +25,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        cmake -S . -B build -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True
         cmake --build build
 
         mv build/src/cli/apfs build/src/apfs-linux-x86-64
@@ -67,7 +67,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        cmake -S . -B build -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True
         cmake --build build
 
         mv build/src/cli/apfs build/src/apfs-linux-arm64
@@ -101,36 +101,40 @@ jobs:
         Invoke-WebRequest -OutFile file.zip https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r6/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r6.zip
         Expand-Archive file.zip -DestinationPath .
 
-    - name: Set variables and compile
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build with MinGW
       run: |
         $toolroot = Join-Path $PWD "mingw64"
+        cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True -DCMAKE_C_COMPILER="$toolroot/bin/gcc.exe" -DCMAKE_CXX_COMPILER="$toolroot/bin/g++.exe"
+        cmake --build build-mingw --parallel
 
-        cmake -S . -B build -G "MinGW Makefiles" `
-          -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True `
-          -DCMAKE_C_COMPILER="$toolroot/bin/gcc.exe" `
-          -DCMAKE_CXX_COMPILER="$toolroot/bin/g++.exe"
+    - name: Package MinGW build
+      run: |
+        Move-Item build-mingw/src/cli/apfs.exe build-mingw/src/apfs-windows-x86-64.exe
+        New-Item -ItemType Directory -Force package-mingw/include
+        Copy-Item include/* package-mingw/include -Recurse
+        Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
+        Compress-Archive -Path package-mingw/include,package-mingw/libapfs.a -DestinationPath build-mingw/src/libapfs-windows-x86-64-mingw.zip
 
-        cmake --build build
+    - name: Build with MSVC
+      run: |
+        cmake -S . -B build-msvc -A x64 -DBUILD_STATIC=True
+        cmake --build build-msvc --config Release --target libapfs --parallel
 
-        Move-Item build/src/cli/apfs.exe build/src/apfs-windows-x86-64.exe
-
-        New-Item -ItemType Directory -Force package/include
-        Copy-Item include/* package/include -Recurse
-        Copy-Item build/src/lib/libapfs.a package/
-
-        Compress-Archive `
-          -Path package/include, package/libapfs.a `
-          -DestinationPath build/src/libapfs-windows-x86-64.zip
+    - name: Package MSVC build
+      run: |
+        New-Item -ItemType Directory -Force package-msvc/include
+        Copy-Item include/* package-msvc/include -Recurse
+        Copy-Item build-msvc/src/lib/apfs.lib package-msvc/apfs.lib
+        Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib -DestinationPath build-msvc/libapfs-windows-x86-64-msvc.zip
 
     - name: Upload executable and library for windows-x86-64
       uses: actions/upload-artifact@v4
       with:
-        name: apfs-windows-x86-64.exe
+        name: apfs-windows-x86-64
         path: |
-          build/src/apfs-windows-x86-64.exe
-          build/src/libapfs-windows-x86-64.zip
+          build-mingw/src/apfs-windows-x86-64.exe
+          build-mingw/src/libapfs-windows-x86-64-mingw.zip
+          build-msvc/libapfs-windows-x86-64-msvc.zip
 
   build-windows-arm64:
     permissions: write-all
@@ -144,36 +148,40 @@ jobs:
         Invoke-WebRequest -OutFile file.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20260311/llvm-mingw-20260311-ucrt-aarch64.zip
         Expand-Archive file.zip -DestinationPath .
 
-    - name: Set variables and compile
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build with MinGW
       run: |
         $toolroot = Join-Path $PWD "llvm-mingw-20260311-ucrt-aarch64"
+        cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True -DCMAKE_C_COMPILER="$toolroot/bin/clang.exe" -DCMAKE_CXX_COMPILER="$toolroot/bin/clang++.exe"
+        cmake --build build-mingw --parallel
 
-        cmake -S . -B build -G "MinGW Makefiles" `
-          -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True `
-          -DCMAKE_C_COMPILER="$toolroot/bin/clang.exe" `
-          -DCMAKE_CXX_COMPILER="$toolroot/bin/clang++.exe"
+    - name: Package MinGW build
+      run: |
+        Move-Item build-mingw/src/cli/apfs.exe build-mingw/src/apfs-windows-arm64.exe
+        New-Item -ItemType Directory -Force package-mingw/include
+        Copy-Item include/* package-mingw/include -Recurse
+        Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
+        Compress-Archive -Path package-mingw/include,package-mingw/libapfs.a -DestinationPath build-mingw/src/libapfs-windows-arm64-mingw.zip
 
-        cmake --build build
+    - name: Build with MSVC
+      run: |
+        cmake -S . -B build-msvc -A ARM64 -DBUILD_STATIC=True
+        cmake --build build-msvc --config Release --target libapfs --parallel
 
-        Move-Item build/src/cli/apfs.exe build/src/apfs-windows-arm64.exe
-
-        New-Item -ItemType Directory -Force package/include
-        Copy-Item include/* package/include -Recurse
-        Copy-Item build/src/lib/libapfs.a package/
-
-        Compress-Archive `
-          -Path package/include, package/libapfs.a `
-          -DestinationPath build/src/libapfs-windows-arm64.zip
+    - name: Package MSVC build
+      run: |
+        New-Item -ItemType Directory -Force package-msvc/include
+        Copy-Item include/* package-msvc/include -Recurse
+        Copy-Item build-msvc/src/lib/apfs.lib package-msvc/apfs.lib
+        Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib -DestinationPath build-msvc/libapfs-windows-arm64-msvc.zip
 
     - name: Upload executable and library for windows-arm64
       uses: actions/upload-artifact@v4
       with:
-        name: apfs-windows-arm64.exe
+        name: apfs-windows-arm64
         path: |
-          build/src/apfs-windows-arm64.exe
-          build/src/libapfs-windows-arm64.zip
+          build-mingw/src/apfs-windows-arm64.exe
+          build-mingw/src/libapfs-windows-arm64-mingw.zip
+          build-msvc/libapfs-windows-arm64-msvc.zip
 
   build-macos-arm64:
     permissions: write-all
@@ -190,7 +198,7 @@ jobs:
         GXX="$(find "$(brew --prefix gcc)/bin" -maxdepth 1 -type f -name 'g++-[0-9]*' | head -1)"
 
         cmake -S . -B build \
-          -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True \
+          -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True \
           -DCMAKE_C_COMPILER="$GCC" \
           -DCMAKE_CXX_COMPILER="$GXX"
 
@@ -230,7 +238,7 @@ jobs:
         GXX="$(find "$(brew --prefix gcc)/bin" -maxdepth 1 -type f -name 'g++-[0-9]*' | head -1)"
 
         cmake -S . -B build \
-          -DCMAKE_BUILD_Type=Release -DBUILD_STATIC=True \
+          -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True \
           -DCMAKE_C_COMPILER="$GCC" \
           -DCMAKE_CXX_COMPILER="$GXX"
 
@@ -268,7 +276,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6
 
     - name: Download executable and library for linux-x86-64
       uses: actions/download-artifact@v4
@@ -283,12 +291,12 @@ jobs:
     - name: Download executable and library for windows-x86-64
       uses: actions/download-artifact@v4
       with:
-        name: apfs-windows-x86-64.exe
+        name: apfs-windows-x86-64
 
     - name: Download executable and library for windows-arm64
       uses: actions/download-artifact@v4
       with:
-        name: apfs-windows-arm64.exe
+        name: apfs-windows-arm64
 
     - name: Download executable and library for macos-arm64
       uses: actions/download-artifact@v4
@@ -316,11 +324,7 @@ jobs:
         )
 
         VERSION_="$TAG-alpha-$SUFFIX"
-        YEAR=$(date +"%Y")
         RELEASE_NAME="apfs $VERSION_"
-
-        echo "VERSION_=$VERSION_" >> $GITHUB_ENV
-        echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
 
     - name: Create a GitHub release
       id: create_release
@@ -381,16 +385,26 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: apfs-windows-x86-64.exe
         asset_name: apfs-windows-x86-64.exe
-        asset_content_type: application/x-executable
+        asset_content_type: application/vnd.microsoft.portable-executable
 
-    - name: Upload library for windows-x86-64
+    - name: Upload MinGW library for windows-x86-64
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: libapfs-windows-x86-64.zip
-        asset_name: libapfs-windows-x86-64.zip
+        asset_path: libapfs-windows-x86-64-mingw.zip
+        asset_name: libapfs-windows-x86-64-mingw.zip
+        asset_content_type: application/zip
+
+    - name: Upload MSVC library for windows-x86-64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: libapfs-windows-x86-64-msvc.zip
+        asset_name: libapfs-windows-x86-64-msvc.zip
         asset_content_type: application/zip
 
     - name: Upload executable for windows-arm64
@@ -401,16 +415,26 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: apfs-windows-arm64.exe
         asset_name: apfs-windows-arm64.exe
-        asset_content_type: application/x-executable
+        asset_content_type: application/vnd.microsoft.portable-executable
 
-    - name: Upload library for windows-arm64
+    - name: Upload MinGW library for windows-arm64
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: libapfs-windows-arm64.zip
-        asset_name: libapfs-windows-arm64.zip
+        asset_path: libapfs-windows-arm64-mingw.zip
+        asset_name: libapfs-windows-arm64-mingw.zip
+        asset_content_type: application/zip
+
+    - name: Upload MSVC library for windows-arm64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: libapfs-windows-arm64-msvc.zip
+        asset_name: libapfs-windows-arm64-msvc.zip
         asset_content_type: application/zip
 
     - name: Upload executable for macos-arm64

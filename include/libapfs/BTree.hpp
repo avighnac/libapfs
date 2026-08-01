@@ -85,7 +85,7 @@ public:
   key_value_t prev(const bytes_t &k, const Convert &convert);
 };
 
-template <typename KeyType, typename Compare = std::less<KeyType>>
+template <typename KeyType, typename Compare>
 BTree<KeyType, Compare> BlockReader::read_btree(uint64_t block_num) const {
   btree_node_phys_t raw = read_object<btree_node_phys_t>(block_num);
   return BTree<KeyType, Compare>(raw, *this);

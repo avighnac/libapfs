@@ -50,7 +50,7 @@ public:
 
   // Reads an `btree_node_phys_t` and calls the constructor for BTree<KeyType>
   // This is for when operator< is defined
-  template <typename KeyType, typename Compare>
+  template <typename KeyType, typename Compare = std::less<KeyType>>
   BTree<KeyType, Compare> read_btree(uint64_t block_num) const;
   // This is for when we must pass a comparator
   template <typename KeyType, typename Compare>
