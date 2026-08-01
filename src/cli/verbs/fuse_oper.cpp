@@ -1,3 +1,5 @@
+#ifdef __linux__
+
 #include "fuse_oper.hpp"
 #include <cerrno>
 
@@ -240,3 +242,5 @@ struct fuse_operations xmp_oper = ([]() {
 
 } // namespace fuse
 } // namespace apfs
+
+#endif

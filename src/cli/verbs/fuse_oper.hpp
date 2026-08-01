@@ -1,3 +1,5 @@
+#ifdef __linux__
+
 #pragma once
 
 #include <fuse3/fuse.h>
@@ -12,7 +14,7 @@ struct fuse_ctx {
   apfs::disk *disk;
   apfs::volume *vol;
   apfs::partition *part;
-  
+
   std::map<uint64_t, apfs::directory_entry> *open_files;
 };
 
@@ -53,3 +55,5 @@ extern struct fuse_operations xmp_oper;
 
 } // namespace fuse
 } // namespace apfs
+
+#endif
