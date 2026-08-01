@@ -50,14 +50,14 @@ struct inode_t : public _j_inode_val_t {
 
 class directory_entry {
   uint64_t inode_num;
-  volume &vol;
+  volume *vol;
   BlockReader reader;
 
 public:
   std::string name;
   directory_entry_type type;
 
-  directory_entry(volume &vol, std::string path, const j_drec_val_t raw_drec, const BlockReader &reader);
+  directory_entry(volume *vol, std::string path, const j_drec_val_t raw_drec, const BlockReader &reader);
 
   // List the files in this directory iff it is a directory (DIRENT_DIR)
   // If it is something else, like a file, an error will be thrown
@@ -112,7 +112,7 @@ public:
   partition(const partition_info_t &part, const BlockReader &reader);
 
   /// @brief Search for a volume by name
-  volume &get_volume(std::string volname);
+  volume &get_volume(const std::string &volname);
 };
 
 // The entry point into the APFS filesystem: used to get disk info
@@ -127,13 +127,8 @@ public:
 
   /// @brief Used to load a partition
   partition load_partition(const partition_info_t &part);
+  /// @brief Search for a partition by GUID
+  partition get_partition(const std::string &guid);
 };
 
 } // namespace apfs
-
-/*
-auto disk = apfs::disk(name);
-auto partition = disk.load_partition(disk.parititions[1]);
-auto volume = partition.load_volume(partition.volumes[1]);
-
-*/

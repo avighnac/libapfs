@@ -46,11 +46,11 @@ cmake --build build
 
 # Structure
 
-All the source code is contained in `src/`. The `src/types` folder contains the structs that make up an APFS formatted disk, copy-pasted from Apple's official documentation (along with some custom types at the bottom of some files).
+All the source code is contained in `src/`. Include headers are in `include/`. The `include/types` folder contains the structs that make up an APFS formatted disk, copy-pasted from Apple's official documentation (along with some custom types at the bottom of some files).
 
 The `src/verb/` directory contains 'actions' that the command-line executable can perform.
 
-Most custom types have their own `.hpp` and `.cpp` files, for example, `BlockReader` and `BTree`. These can also be found in the `src/` directory.
+Most custom types have their own `.hpp` and `.cpp` files, for example, `BlockReader` and `BTree`. These can also be found in the `include/` and `src/` directories, respectively.
 
 # Features
 
@@ -70,7 +70,30 @@ To find out which options are required for a given verb, run apfs help <verb>.
 
 `ls` and `cat` work on exact paths.
 
+Additionally, on Linux, there is also:
+
+```
+├─ mount     (read-only) Mount an APFS volume
+└─ unmount   Unmount an APFS volume mounted with the mount verb
+```
+
 # Examples
+
+## Mounting (only Linux)
+
+```bash
+./apfs mount /path/to/disk --mount /path/to/mount
+```
+
+The contents of the APFS volume will then be accessible at `/path/to/mount` like any other directory.
+
+To unmount, run:
+
+```bash
+./apfs unmount --mount /path/to/mount
+```
+
+## Without mounting (all other operating systems)
 
 You can copy files over like this:
 

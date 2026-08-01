@@ -1,6 +1,7 @@
 #include <GuidTable.hpp>
 #include <algorithm>
 #include <crc32c.hpp>
+#include <iomanip>
 #include <libapfs/Error.hpp>
 #include <libapfs/Partition.hpp>
 #include <libapfs/apfs.hpp>
@@ -27,6 +28,36 @@ static uint32_t drec_key_hash(const std::string &name) {
   return hash_computed;
 }
 
+static std::string guid_to_string(const apfs::guid_t &guid) {
+  uint32_t data1;
+  uint16_t data2;
+  uint16_t data3;
+  std::memcpy(&data1, guid.data(), sizeof(data1));
+  std::memcpy(&data2, guid.data() + 4, sizeof(data2));
+  std::memcpy(&data3, guid.data() + 6, sizeof(data3));
+
+  std::ostringstream oss;
+  oss << std::hex << std::uppercase << std::setfill('0');
+  oss << std::setw(8) << data1 << '-'
+      << std::setw(4) << data2 << '-'
+      << std::setw(4) << data3 << '-'
+      << std::setw(2) << uint32_t(guid[8])
+      << std::setw(2) << uint32_t(guid[9]) << '-';
+
+  for (int i = 10; i < 16; ++i) {
+    oss << std::setw(2) << uint32_t(guid[i]);
+  }
+
+  std::string type = oss.str();
+  if (type == "7C3457EF-0000-11AA-AA11-00306543ECAC") {
+    type = "APFS";
+  }
+  if (type == "C12A7328-F81F-11D2-BA4B-00A0C93EC93B") {
+    type = "EFI";
+  }
+  return type;
+}
+
 namespace apfs {
 
 disk::disk(const std::string &filename) : reader(filename, false) {
@@ -51,6 +82,15 @@ partition disk::load_partition(const partition_info_t &part) {
   return partition(part, reader);
 }
 
+partition disk::get_partition(const std::string &guid) {
+  for (auto &partition : partitions) {
+    if (guid_to_string(partition.unique_guid) == guid) {
+      return load_partition(partition);
+    }
+  }
+  throw Error("no partition with guid " + guid + " found");
+}
+
 partition::partition(const std::string &filename) : reader(filename, true), part(reader) {
   num_blocks = part.superblock.nx_block_count;
   block_size = part.superblock.nx_block_size;
@@ -67,7 +107,7 @@ partition::partition(const partition_info_t &_part, const BlockReader &_reader) 
 }
 
 /// @brief Search for a volume by name
-volume &partition::get_volume(std::string volname) {
+volume &partition::get_volume(const std::string &volname) {
   for (volume &vol : volumes) {
     if (vol.name == volname) {
       return vol;
@@ -143,10 +183,10 @@ directory_entry volume::navigate_to(const std::string &path) {
     }
   }
 
-  return {*this, (dirs.empty() ? "/" : dirs.back()), drec_val, reader};
+  return {this, (dirs.empty() ? "/" : dirs.back()), drec_val, reader};
 }
 
-directory_entry::directory_entry(volume &vol, std::string name, const j_drec_val_t raw_drec, const BlockReader &reader)
+directory_entry::directory_entry(volume *vol, std::string name, const j_drec_val_t raw_drec, const BlockReader &reader)
     : vol(vol), name(name), inode_num(raw_drec.file_id), type(directory_entry_type(raw_drec.flags & DREC_TYPE_MASK)), reader(reader) {}
 
 std::vector<directory_entry> directory_entry::list_children() {
@@ -161,12 +201,12 @@ std::vector<directory_entry> directory_entry::list_children() {
 
   std::vector<directory_entry> children;
 
-  auto kv = vol.filesystem.lower_bound(to_bytes(key), [&](const oid_t &oid) { return vol.get_paddr(oid); });
-  while (kv != vol.filesystem.SENTINEL && ((cast<j_key_t>(kv.key).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT) == APFS_TYPE_DIR_REC) {
+  auto kv = vol->filesystem.lower_bound(to_bytes(key), [&](const oid_t &oid) { return vol->get_paddr(oid); });
+  while (kv != vol->filesystem.SENTINEL && ((cast<j_key_t>(kv.key).obj_id_and_type & OBJ_TYPE_MASK) >> OBJ_TYPE_SHIFT) == APFS_TYPE_DIR_REC) {
     std::string name = cast<j_drec_hashed_key_t>(kv.key).name;
     children.emplace_back(vol, name, cast<j_drec_val_t>(kv.val), reader);
 
-    kv = vol.filesystem.upper_bound(kv.key, [&](const oid_t &oid) { return vol.get_paddr(oid); });
+    kv = vol->filesystem.upper_bound(kv.key, [&](const oid_t &oid) { return vol->get_paddr(oid); });
   }
 
   return children;
@@ -184,7 +224,7 @@ inode_t::inode_t(uint64_t inode_num, const _j_inode_val_t &raw, std::vector<x_fi
 inode_t directory_entry::load_inode() const {
   j_inode_key_t inode_key;
   inode_key.obj_id_and_type = (uint64_t(APFS_TYPE_INODE) << OBJ_TYPE_SHIFT) | inode_num;
-  auto inode_kv = vol.filesystem.lower_bound(to_bytes(inode_key), [&](const oid_t &oid) { return vol.get_paddr(oid); });
+  auto inode_kv = vol->filesystem.lower_bound(to_bytes(inode_key), [&](const oid_t &oid) { return vol->get_paddr(oid); });
   j_inode_val_t inode_val = cast<j_inode_val_t>(inode_kv.val);
 
   std::vector<x_field> xfields = reader.parse_xfields(inode_val.xfields);
@@ -215,12 +255,12 @@ void directory_entry::read_file(std::ostream &os, off_t offset, ssize_t size) {
   j_file_extent_key_t key;
   key.logical_addr = offset;
   key.obj_id_and_type = (uint64_t(APFS_TYPE_FILE_EXTENT) << OBJ_TYPE_SHIFT) | private_id;
-  auto kv = vol.filesystem.upper_bound(to_bytes(key), [&](const oid_t &oid) { return vol.get_paddr(oid); });
-  kv = vol.filesystem.prev(kv.key, [&](const oid_t &oid) { return vol.get_paddr(oid); });
+  auto kv = vol->filesystem.upper_bound(to_bytes(key), [&](const oid_t &oid) { return vol->get_paddr(oid); });
+  kv = vol->filesystem.prev(kv.key, [&](const oid_t &oid) { return vol->get_paddr(oid); });
 
   bool first = true;
   uint64_t skip_bytes;
-  while (size_remaining && kv != vol.filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_FILE_EXTENT) {
+  while (size_remaining && kv != vol->filesystem.SENTINEL && (cast<j_key_t>(kv.key).obj_id_and_type >> OBJ_TYPE_SHIFT) == APFS_TYPE_FILE_EXTENT) {
     j_file_extent_val_t val = cast<j_file_extent_val_t>(kv.val);
 
     uint64_t addr = cast<j_file_extent_key_t>(kv.key).logical_addr;
@@ -256,7 +296,7 @@ void directory_entry::read_file(std::ostream &os, off_t offset, ssize_t size) {
       blocks_remaining -= blocks_to_read;
     }
 
-    kv = vol.filesystem.upper_bound(kv.key, [&](const oid_t &oid) { return vol.get_paddr(oid); });
+    kv = vol->filesystem.upper_bound(kv.key, [&](const oid_t &oid) { return vol->get_paddr(oid); });
   }
 }
 

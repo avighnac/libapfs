@@ -56,11 +56,10 @@ case "$1" in
 esac
 
 need curl
+need jq
 need uname
 need chmod
 need mktemp
-need sed
-need head
 need rm
 need mv
 need mkdir
@@ -74,8 +73,12 @@ OS_RAW="$(uname -s)"
 ARCH_RAW="$(uname -m)"
 
 case "$OS_RAW" in
-  Linux)  OS="linux" ;;
-  Darwin) OS="macos" ;;
+  Linux)
+    OS="linux"
+    ;;
+  Darwin)
+    OS="macos"
+    ;;
   *)
     err "unsupported OS: $OS_RAW"
     exit 1
@@ -83,8 +86,12 @@ case "$OS_RAW" in
 esac
 
 case "$ARCH_RAW" in
-  x86_64|amd64)  ARCH="x86-64" ;;
-  arm64|aarch64) ARCH="arm64" ;;
+  x86_64|amd64)
+    ARCH="x86-64"
+    ;;
+  arm64|aarch64)
+    ARCH="arm64"
+    ;;
   *)
     err "unsupported architecture: $ARCH_RAW"
     exit 1
@@ -93,12 +100,27 @@ esac
 
 log "detected platform: $OS / $ARCH"
 
-RELEASES_JSON="$(curl -fsSL "https://api.github.com/repos/$REPO/releases")"
+RELEASES_JSON="$(
+  curl -fsSL \
+    -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2022-11-28" \
+    "https://api.github.com/repos/$REPO/releases?per_page=100"
+)"
 
+# GitHub does not always return releases in publication order.
+# Explicitly select the non-draft release with the newest published_at value.
 TAG="$(
   printf '%s\n' "$RELEASES_JSON" |
-    sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' |
-    head -n1
+    jq -r '
+      map(
+        select(
+          .draft == false and
+          .published_at != null
+        )
+      )
+      | max_by(.published_at)
+      | .tag_name // empty
+    '
 )"
 
 if [ -z "$TAG" ]; then
@@ -119,16 +141,22 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 TMP_FILE="$TMP_DIR/$ASSET_NAME"
 
-log "downloading ${BOLD}$ASSET_NAME${RESET} from ${BOLD}$TAG${RESET}"
+log "latest release: ${BOLD}$TAG${RESET}"
+log "downloading ${BOLD}$ASSET_NAME${RESET}"
 
-curl -fsSL "$DOWNLOAD_URL" -o "$TMP_FILE"
+if ! curl -fsSL "$DOWNLOAD_URL" -o "$TMP_FILE"; then
+  err "failed to download release asset"
+  err "release: $TAG"
+  err "asset: $ASSET_NAME"
+  exit 1
+fi
 
 if [ "$MODE" = "cli" ]; then
   chmod +x "$TMP_FILE"
 
   log "installing to ${BOLD}$BIN_INSTALL_PATH${RESET}"
 
-  if [ -w /usr/local/bin ]; then
+  if [ -d /usr/local/bin ] && [ -w /usr/local/bin ]; then
     mv "$TMP_FILE" "$BIN_INSTALL_PATH"
     chmod 755 "$BIN_INSTALL_PATH"
   else
@@ -139,10 +167,11 @@ if [ "$MODE" = "cli" ]; then
 
   ok "installed command-line executable successfully"
   printf "\n"
-  "$BIN_INSTALL_PATH"
 
+  "$BIN_INSTALL_PATH"
 else
   EXTRACT_PATH="$TMP_DIR/extracted"
+
   mkdir -p "$EXTRACT_PATH"
   unzip -q "$TMP_FILE" -d "$EXTRACT_PATH"
 
@@ -159,7 +188,11 @@ else
   log "installing headers to ${BOLD}$INCLUDE_INSTALL_PATH/libapfs${RESET}"
   log "installing library to ${BOLD}$LIB_INSTALL_PATH/libapfs.a${RESET}"
 
-  if [ -w /usr/local/include ] && [ -w /usr/local/lib ]; then
+  if [ -d /usr/local/include ] &&
+     [ -w /usr/local/include ] &&
+     [ -d /usr/local/lib ] &&
+     [ -w /usr/local/lib ]; then
+
     mkdir -p "$INCLUDE_INSTALL_PATH" "$LIB_INSTALL_PATH"
 
     rm -rf "$INCLUDE_INSTALL_PATH/libapfs"

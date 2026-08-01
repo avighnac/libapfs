@@ -10,6 +10,14 @@ target_link_libraries(apfs PRIVATE libapfs)
 
 target_compile_options(apfs PRIVATE -Wno-multichar)
 
+if(LINUX)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(FUSE3 REQUIRED IMPORTED_TARGET fuse3)
+
+  target_link_libraries(apfs PRIVATE PkgConfig::FUSE3)
+  target_compile_definitions(apfs PRIVATE FUSE_USE_VERSION=35)
+endif()
+
 if (BUILD_STATIC)
   if (APPLE)
     target_link_options(apfs PRIVATE -static-libstdc++ -static-libgcc)

@@ -1,9 +1,8 @@
 #include <algorithm>
 #include <iostream>
+#include <libapfs/Error.hpp>
 #include <map>
 #include <string>
-#include <util.hpp>
-#include <libapfs/Error.hpp>
 #include <util.hpp>
 #include <vector>
 #include <verb.hpp>
@@ -57,6 +56,9 @@ struct HelpVerb : Verb {
     } else if (verb == "info") {
       std::cout << color::bold("_default: ") << "filename " << color::red("required") << '\n';
       std::cout << color::bold("part: ") << "partition guid " << color::yellow("maybe deducible") << '\n';
+    } else if (verb == "mount" || verb == "unmount") {
+      std::cout << color::bold("_default: ") << "filename " << color::red("required") << '\n';
+      std::cout << color::bold("mount: ") << "root of mounted filesystem " << color::red("required") << '\n';
     } else {
       std::cout << "No help found for " << verb << '\n';
     }

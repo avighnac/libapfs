@@ -198,7 +198,7 @@ static int xmp_open(const char *path, struct fuse_file_info *fi) {
   try {
     apfs::directory_entry ent = vol->navigate_to(std::string(path));
     uint64_t inode_num = ent.load_inode().num;
-    open_files[inode_num] = std::move(ent);
+    open_files[inode_num] = ent;
     fi->fh = inode_num;
   } catch (const Error &e) {
     return -(errno = 2);
