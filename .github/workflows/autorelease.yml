@@ -387,7 +387,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: apfs-windows-x86-64.exe
+        asset_path: build-mingw/src/apfs-windows-x86-64.exe
         asset_name: apfs-windows-x86-64.exe
         asset_content_type: application/x-executable
 
@@ -397,7 +397,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: libapfs-windows-x86-64-mingw.zip
+        asset_path: build-mingw/src/libapfs-windows-x86-64-mingw.zip
         asset_name: libapfs-windows-x86-64-mingw.zip
         asset_content_type: application/zip
 
@@ -407,7 +407,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: libapfs-windows-x86-64-msvc.zip
+        asset_path: build-msvc/libapfs-windows-x86-64-msvc.zip
         asset_name: libapfs-windows-x86-64-msvc.zip
         asset_content_type: application/zip
 
@@ -417,7 +417,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: apfs-windows-arm64.exe
+        asset_path: build-mingw/src/apfs-windows-arm64.exe
         asset_name: apfs-windows-arm64.exe
         asset_content_type: application/x-executable
 
@@ -427,7 +427,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: libapfs-windows-arm64-mingw.zip
+        asset_path: build-mingw/src/libapfs-windows-arm64-mingw.zip
         asset_name: libapfs-windows-arm64-mingw.zip
         asset_content_type: application/zip
 
@@ -437,7 +437,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: libapfs-windows-arm64-msvc.zip
+        asset_path: build-msvc/libapfs-windows-arm64-msvc.zip
         asset_name: libapfs-windows-arm64-msvc.zip
         asset_content_type: application/zip
 
