@@ -276,7 +276,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v3
 
     - name: Download executable and library for linux-x86-64
       uses: actions/download-artifact@v4
@@ -324,7 +324,11 @@ jobs:
         )
 
         VERSION_="$TAG-alpha-$SUFFIX"
+        YEAR=$(date +"%Y")
         RELEASE_NAME="apfs $VERSION_"
+
+        echo "VERSION_=$VERSION_" >> $GITHUB_ENV
+        echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
 
     - name: Create a GitHub release
       id: create_release
@@ -385,7 +389,7 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: apfs-windows-x86-64.exe
         asset_name: apfs-windows-x86-64.exe
-        asset_content_type: application/vnd.microsoft.portable-executable
+        asset_content_type: application/x-executable
 
     - name: Upload MinGW library for windows-x86-64
       uses: actions/upload-release-asset@v1
@@ -415,7 +419,7 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: apfs-windows-arm64.exe
         asset_name: apfs-windows-arm64.exe
-        asset_content_type: application/vnd.microsoft.portable-executable
+        asset_content_type: application/x-executable
 
     - name: Upload MinGW library for windows-arm64
       uses: actions/upload-release-asset@v1
