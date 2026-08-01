@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <fuse3/fuse.h>
+#include <fuse.h>
 #include <libapfs/apfs.hpp>
 #include <map>
 #include <sstream>

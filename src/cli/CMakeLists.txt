@@ -4,17 +4,88 @@ project(apfs CXX)
 
 file(GLOB VERB_SOURCES verbs/*.cpp)
 file(GLOB REG_SOURCES *.cpp)
-add_executable(apfs ${REG_SOURCES} ${VERB_SOURCES})
+
+add_executable(apfs
+  ${REG_SOURCES}
+  ${VERB_SOURCES}
+)
 
 target_link_libraries(apfs PRIVATE libapfs)
 
 target_compile_options(apfs PRIVATE -Wno-multichar)
 
-if(LINUX)
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(FUSE3 REQUIRED IMPORTED_TARGET fuse3)
+target_include_directories(apfs PRIVATE
+  .
+  verbs
+  "../"
+  "../../include"
+)
 
-  target_link_libraries(apfs PRIVATE PkgConfig::FUSE3)
+if(LINUX)
+  include(ExternalProject)
+
+  find_program(MESON_EXECUTABLE meson REQUIRED)
+  find_program(NINJA_EXECUTABLE ninja REQUIRED)
+
+  set(FUSE_SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/libfuse-src")
+  set(FUSE_BUILD_DIR "${FETCHCONTENT_BASE_DIR}/libfuse-build")
+  set(FUSE_STATIC_LIBRARY "${FUSE_BUILD_DIR}/lib/libfuse3.a")
+
+  file(MAKE_DIRECTORY
+    "${FUSE_SOURCE_DIR}/include"
+    "${FUSE_BUILD_DIR}"
+    "${FUSE_BUILD_DIR}/include"
+  )
+
+  if(EXISTS "${FUSE_SOURCE_DIR}/meson.build")
+    set(FUSE_DOWNLOAD_ARGS
+      DOWNLOAD_COMMAND ""
+      UPDATE_COMMAND ""
+    )
+  else()
+    set(FUSE_DOWNLOAD_ARGS
+      GIT_REPOSITORY https://github.com/libfuse/libfuse.git
+      GIT_TAG fuse-3.18.2
+      GIT_SHALLOW TRUE
+    )
+  endif()
+
+  ExternalProject_Add(
+    libfuse_external
+
+    ${FUSE_DOWNLOAD_ARGS}
+
+    SOURCE_DIR "${FUSE_SOURCE_DIR}"
+    BINARY_DIR "${FUSE_BUILD_DIR}"
+
+    CONFIGURE_COMMAND
+      "${MESON_EXECUTABLE}" setup
+      "${FUSE_BUILD_DIR}"
+      "${FUSE_SOURCE_DIR}"
+      --default-library=static
+      --buildtype=release
+      -Dexamples=false
+      -Dtests=false
+
+    BUILD_COMMAND "${MESON_EXECUTABLE}" compile -C "${FUSE_BUILD_DIR}"
+
+    INSTALL_COMMAND ""
+
+    BUILD_BYPRODUCTS "${FUSE_STATIC_LIBRARY}"
+  )
+
+  add_library(fuse3_static STATIC IMPORTED GLOBAL)
+
+  set_target_properties(fuse3_static PROPERTIES
+    IMPORTED_LOCATION "${FUSE_STATIC_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "${FUSE_SOURCE_DIR}/include;${FUSE_BUILD_DIR}"
+  )
+
+  add_dependencies(fuse3_static libfuse_external)
+  add_dependencies(apfs libfuse_external)
+
+  target_link_libraries(apfs PRIVATE fuse3_static)
+
   target_compile_definitions(apfs PRIVATE FUSE_USE_VERSION=35)
 endif()
 
@@ -29,5 +100,3 @@ if (BUILD_STATIC)
     endif()
   endif()
 endif()
-
-target_include_directories(apfs PRIVATE . verbs "../" "../../include")

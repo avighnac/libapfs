@@ -19,7 +19,7 @@ jobs:
         sudo apt install g++
         sudo apt install cmake
         sudo apt install zip
-        sudo apt install libfuse3-dev pkg-config
+        sudo apt install meson ninja-build
 
     - name: Set variables and compile
       env:
@@ -61,7 +61,7 @@ jobs:
         sudo apt install g++
         sudo apt install cmake
         sudo apt install zip
-        sudo apt install libfuse3-dev pkg-config
+        sudo apt install meson ninja-build
 
     - name: Set variables and compile
       env:

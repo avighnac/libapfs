@@ -2,7 +2,7 @@
 
 #include "fuse_oper.hpp"
 #include <VolumeVerb.hpp>
-#include <fuse3/fuse.h>
+#include <fuse.h>
 #include <libapfs/apfs.hpp>
 #include <optional>
 #include <sstream>
