@@ -81,6 +81,8 @@ Additionally, on Linux, there is also:
 
 ## Mounting (only Linux)
 
+Thanks to [libfuse](https://github.com/libfuse/libfuse)!
+
 ```bash
 ./apfs mount /path/to/disk --mount /path/to/mount
 ```
