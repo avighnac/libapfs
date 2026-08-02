@@ -105,24 +105,24 @@ jobs:
       run: |
         $toolroot = Join-Path $PWD "mingw64"
         cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True -DCMAKE_C_COMPILER="$toolroot/bin/gcc.exe" -DCMAKE_CXX_COMPILER="$toolroot/bin/g++.exe"
-        cmake --build build-mingw --parallel
+        cmake --build build-mingw --target libapfs --parallel
 
     - name: Package MinGW build
       run: |
-        Move-Item build-mingw/src/cli/apfs.exe build-mingw/src/apfs-windows-x86-64.exe
         New-Item -ItemType Directory -Force package-mingw/include
         Copy-Item include/* package-mingw/include -Recurse
         Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
-        Compress-Archive -Path package-mingw/include,package-mingw/libapfs.a -DestinationPath build-mingw/src/libapfs-windows-x86-64-mingw.zip
+        Compress-Archive -Path package-mingw/include,package-mingw/libapfs.a -DestinationPath build-mingw/libapfs-windows-x86-64-mingw.zip
 
     - name: Build with MSVC
       run: |
         cmake -S . -B build-msvc -A x64 -DBUILD_STATIC=True
-        cmake --build build-msvc --config Release --target libapfs --parallel
-        cmake --build build-msvc --config Debug --target libapfs --parallel
+        cmake --build build-msvc --config Release --parallel
+        cmake --build build-msvc --config Debug --parallel
 
     - name: Package MSVC build
       run: |
+        Move-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-x86-64.exe
         New-Item -ItemType Directory -Force package-msvc/include
         Copy-Item include/* package-msvc/include -Recurse
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
@@ -135,8 +135,8 @@ jobs:
       with:
         name: apfs-windows-x86-64
         path: |
-          build-mingw/src/apfs-windows-x86-64.exe
-          build-mingw/src/libapfs-windows-x86-64-mingw.zip
+          build-msvc/apfs-windows-x86-64.exe
+          build-mingw/libapfs-windows-x86-64-mingw.zip
           build-msvc/libapfs-windows-x86-64-msvc.zip
 
   build-windows-arm64:
@@ -155,24 +155,24 @@ jobs:
       run: |
         $toolroot = Join-Path $PWD "llvm-mingw-20260311-ucrt-aarch64"
         cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True -DCMAKE_C_COMPILER="$toolroot/bin/clang.exe" -DCMAKE_CXX_COMPILER="$toolroot/bin/clang++.exe"
-        cmake --build build-mingw --parallel
+        cmake --build build-mingw --target libapfs --parallel
 
     - name: Package MinGW build
       run: |
-        Move-Item build-mingw/src/cli/apfs.exe build-mingw/src/apfs-windows-arm64.exe
         New-Item -ItemType Directory -Force package-mingw/include
         Copy-Item include/* package-mingw/include -Recurse
         Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
-        Compress-Archive -Path package-mingw/include,package-mingw/libapfs.a -DestinationPath build-mingw/src/libapfs-windows-arm64-mingw.zip
+        Compress-Archive -Path package-mingw/include,package-mingw/libapfs.a -DestinationPath build-mingw/libapfs-windows-arm64-mingw.zip
 
     - name: Build with MSVC
       run: |
         cmake -S . -B build-msvc -A ARM64 -DBUILD_STATIC=True
-        cmake --build build-msvc --config Release --target libapfs --parallel
-        cmake --build build-msvc --config Debug --target libapfs --parallel
+        cmake --build build-msvc --config Release --parallel
+        cmake --build build-msvc --config Debug --parallel
 
     - name: Package MSVC build
       run: |
+        Move-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-arm64.exe
         New-Item -ItemType Directory -Force package-msvc/include
         Copy-Item include/* package-msvc/include -Recurse
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
@@ -185,8 +185,8 @@ jobs:
       with:
         name: apfs-windows-arm64
         path: |
-          build-mingw/src/apfs-windows-arm64.exe
-          build-mingw/src/libapfs-windows-arm64-mingw.zip
+          build-msvc/apfs-windows-arm64.exe
+          build-mingw/libapfs-windows-arm64-mingw.zip
           build-msvc/libapfs-windows-arm64-msvc.zip
           
   build-macos-arm64:
