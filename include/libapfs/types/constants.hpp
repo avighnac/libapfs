@@ -206,6 +206,7 @@
 
 // The values used by the mode field of j_inode_val_t to indicate a fileʼs mode.
 
+#ifndef S_IFMT
 #define S_IFMT 0170000
 #define S_IFIFO 0010000
 #define S_IFCHR 0020000
@@ -215,6 +216,7 @@
 #define S_IFLNK 0120000
 #define S_IFSOCK 0140000
 #define S_IFWHT 0160000
+#endif
 
 // Values used by the flags field of j_drec_val_t to indicate a directory entryʼs type.
 
