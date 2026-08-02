@@ -194,9 +194,9 @@ endif()
 if(BUILD_STATIC)
   if(MSVC)
     set_property(
-      TARGET apfs
+      TARGET libapfs apfs
       PROPERTY MSVC_RUNTIME_LIBRARY
-      "MultiThreaded"
+      "MultiThreaded$<$<CONFIG:Debug>:Debug>"
     )
   elseif(APPLE)
     target_link_options(apfs PRIVATE

@@ -114,20 +114,37 @@ jobs:
         Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
         Compress-Archive -Path package-mingw/include,package-mingw/libapfs.a -DestinationPath build-mingw/libapfs-windows-x86-64-mingw.zip
 
-    - name: Build with MSVC
+    - name: Build MSVC Debug library
+      run: |
+        cmake -S . -B build-msvc -A x64 -DBUILD_STATIC=True -DBUILD_CLI=False
+        cmake --build build-msvc --config Debug --target libapfs --parallel
+
+    - name: Stage MSVC Debug library
+      run: |
+        New-Item -ItemType Directory -Force package-msvc/include
+        Copy-Item include/* package-msvc/include -Recurse
+        Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
+        Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
+
+    - name: Clean MSVC build
+      run: |
+        if (Test-Path build-msvc) {
+          Remove-Item build-msvc -Recurse -Force
+        }
+
+        if (Test-Path .cmake-deps) {
+          Remove-Item .cmake-deps -Recurse -Force
+        }
+
+    - name: Build MSVC Release
       run: |
         cmake -S . -B build-msvc -A x64 -DBUILD_STATIC=True -DBUILD_CLI=True
-        cmake --build build-msvc --config Debug --parallel
         cmake --build build-msvc --config Release --parallel
 
     - name: Package MSVC build
       run: |
-        Move-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-x86-64.exe
-        New-Item -ItemType Directory -Force package-msvc/include
-        Copy-Item include/* package-msvc/include -Recurse
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
-        Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
-        Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
+        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-x86-64.exe
         Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb -DestinationPath build-msvc/libapfs-windows-x86-64-msvc.zip
 
     - name: Upload executable and library for windows-x86-64
@@ -164,20 +181,37 @@ jobs:
         Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
         Compress-Archive -Path package-mingw/include,package-mingw/libapfs.a -DestinationPath build-mingw/libapfs-windows-arm64-mingw.zip
 
-    - name: Build with MSVC
+    - name: Build MSVC Debug library
+      run: |
+        cmake -S . -B build-msvc -A ARM64 -DBUILD_STATIC=True -DBUILD_CLI=False
+        cmake --build build-msvc --config Debug --target libapfs --parallel
+
+    - name: Stage MSVC Debug library
+      run: |
+        New-Item -ItemType Directory -Force package-msvc/include
+        Copy-Item include/* package-msvc/include -Recurse
+        Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
+        Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
+
+    - name: Clean MSVC build
+      run: |
+        if (Test-Path build-msvc) {
+          Remove-Item build-msvc -Recurse -Force
+        }
+
+        if (Test-Path .cmake-deps) {
+          Remove-Item .cmake-deps -Recurse -Force
+        }
+
+    - name: Build MSVC Release
       run: |
         cmake -S . -B build-msvc -A ARM64 -DBUILD_STATIC=True -DBUILD_CLI=True
-        cmake --build build-msvc --config Debug --parallel
         cmake --build build-msvc --config Release --parallel
 
     - name: Package MSVC build
       run: |
-        Move-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-arm64.exe
-        New-Item -ItemType Directory -Force package-msvc/include
-        Copy-Item include/* package-msvc/include -Recurse
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
-        Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
-        Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
+        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-arm64.exe
         Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb -DestinationPath build-msvc/libapfs-windows-arm64-msvc.zip
 
     - name: Upload executable and library for windows-arm64
