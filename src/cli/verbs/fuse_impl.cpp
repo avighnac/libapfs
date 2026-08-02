@@ -9,7 +9,7 @@ namespace fuse {
 int fill_dir_plus = 0;
 int readdir_zero_ino = 0;
 
-void *xmp_init(struct fuse_conn_info *conn, struct fuse_config *cfg) {
+void *apfs_fuse_init(struct fuse_conn_info *conn, struct fuse_config *cfg) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   ctx->open_files = new std::map<uint64_t, apfs::directory_entry>();
   if (!cfg->auto_cache) {
@@ -20,7 +20,7 @@ void *xmp_init(struct fuse_conn_info *conn, struct fuse_config *cfg) {
   return fuse_get_context()->private_data;
 }
 
-void xmp_destroy(void *private_data) {
+void apfs_fuse_destroy(void *private_data) {
   fuse_ctx *ctx = (fuse_ctx *)private_data;
   delete ctx->vol;
   delete ctx->part;
@@ -28,7 +28,7 @@ void xmp_destroy(void *private_data) {
   delete ctx->open_files;
 }
 
-int xmp_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
+int apfs_fuse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   int res;
   memset(stbuf, 0, sizeof(struct stat));
@@ -51,7 +51,7 @@ int xmp_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi)
   return res;
 }
 
-int xmp_access(const char *path, int mask) {
+int apfs_fuse_access(const char *path, int mask) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   int res;
   try {
@@ -64,11 +64,11 @@ int xmp_access(const char *path, int mask) {
   return res;
 }
 
-int xmp_readlink(const char *path, char *buf, size_t size) {
+int apfs_fuse_readlink(const char *path, char *buf, size_t size) {
   return -EROFS;
 }
 
-int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags) {
+int apfs_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   try {
     apfs::directory_entry dirent = (fi && fi->fh) ? ctx->open_files->at(fi->fh) : ctx->vol->navigate_to(std::string(path));
@@ -101,51 +101,51 @@ int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
   return 0;
 }
 
-int xmp_mknod(const char *path, mode_t mode, dev_t rdev) {
+int apfs_fuse_mknod(const char *path, mode_t mode, dev_t rdev) {
   return -EROFS;
 }
 
-int xmp_mkdir(const char *path, mode_t mode) {
+int apfs_fuse_mkdir(const char *path, mode_t mode) {
   return -EROFS;
 }
 
-int xmp_unlink(const char *path) {
+int apfs_fuse_unlink(const char *path) {
   return -EROFS;
 }
 
-int xmp_rmdir(const char *path) {
+int apfs_fuse_rmdir(const char *path) {
   return -EROFS;
 }
 
-int xmp_symlink(const char *from, const char *to) {
+int apfs_fuse_symlink(const char *from, const char *to) {
   return -EROFS;
 }
 
-int xmp_rename(const char *from, const char *to, unsigned int flags) {
+int apfs_fuse_rename(const char *from, const char *to, unsigned int flags) {
   return -EROFS;
 }
 
-int xmp_link(const char *from, const char *to) {
+int apfs_fuse_link(const char *from, const char *to) {
   return -EROFS;
 }
 
-int xmp_chmod(const char *path, mode_t mode, struct fuse_file_info *fi) {
+int apfs_fuse_chmod(const char *path, mode_t mode, struct fuse_file_info *fi) {
   return -EROFS;
 }
 
-int xmp_chown(const char *path, uid_t uid, gid_t gid, struct fuse_file_info *fi) {
+int apfs_fuse_chown(const char *path, uid_t uid, gid_t gid, struct fuse_file_info *fi) {
   return -EROFS;
 }
 
-int xmp_truncate(const char *path, off_t size, struct fuse_file_info *fi) {
+int apfs_fuse_truncate(const char *path, off_t size, struct fuse_file_info *fi) {
   return -EROFS;
 }
 
-int xmp_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
+int apfs_fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
   return -EROFS;
 }
 
-int xmp_open(const char *path, struct fuse_file_info *fi) {
+int apfs_fuse_open(const char *path, struct fuse_file_info *fi) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   try {
     apfs::directory_entry ent = ctx->vol->navigate_to(std::string(path));
@@ -159,7 +159,7 @@ int xmp_open(const char *path, struct fuse_file_info *fi) {
   return 0;
 }
 
-int xmp_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+int apfs_fuse_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   int res;
 
@@ -175,7 +175,7 @@ int xmp_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
     const std::string contents = oss.str();
     const size_t len = std::min(size, contents.size());
     memcpy(buf, contents.data(), len);
-    res = contents.length();
+    res = len;
   } catch (const Error &e) {
     res = -ENOENT;
   }
@@ -183,60 +183,60 @@ int xmp_read(const char *path, char *buf, size_t size, off_t offset, struct fuse
   return res;
 }
 
-int xmp_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+int apfs_fuse_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
   return -EROFS;
 }
 
-int xmp_statfs(const char *path, struct statvfs *stbuf) {
+int apfs_fuse_statfs(const char *path, struct statvfs *stbuf) {
   stbuf->f_namemax = (1 << 10) - 1;
   return -1;
 }
 
-int xmp_release(const char *path, struct fuse_file_info *fi) {
+int apfs_fuse_release(const char *path, struct fuse_file_info *fi) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   ctx->open_files->erase(fi->fh);
   return 0;
 }
 
-int xmp_fsync(const char *path, int isdatasync, struct fuse_file_info *fi) {
+int apfs_fuse_fsync(const char *path, int isdatasync, struct fuse_file_info *fi) {
   return 0;
 }
 
-int xmp_fallocate(const char *path, int mode, off_t offset, off_t length, struct fuse_file_info *fi) {
+int apfs_fuse_fallocate(const char *path, int mode, off_t offset, off_t length, struct fuse_file_info *fi) {
   return 0;
 }
 
-off_t xmp_lseek(const char *path, off_t off, int whence, struct fuse_file_info *fi) {
+off_t apfs_fuse_lseek(const char *path, off_t off, int whence, struct fuse_file_info *fi) {
   return 0;
 }
 
-struct fuse_operations xmp_oper = ([]() {
+struct fuse_operations apfs_fuse_oper = ([]() {
   fuse_operations ops{};
-  ops.init = xmp_init;
-  ops.destroy = xmp_destroy;
-  ops.getattr = xmp_getattr;
-  ops.access = xmp_access;
-  ops.readlink = xmp_readlink;
-  ops.readdir = xmp_readdir;
-  ops.mknod = xmp_mknod;
-  ops.mkdir = xmp_mkdir;
-  ops.symlink = xmp_symlink;
-  ops.unlink = xmp_unlink;
-  ops.rmdir = xmp_rmdir;
-  ops.rename = xmp_rename;
-  ops.link = xmp_link;
-  ops.chmod = xmp_chmod;
-  ops.chown = xmp_chown;
-  ops.truncate = xmp_truncate;
-  ops.open = xmp_open;
-  ops.create = xmp_create;
-  ops.read = xmp_read;
-  ops.write = xmp_write;
-  ops.statfs = xmp_statfs;
-  ops.release = xmp_release;
-  ops.fsync = xmp_fsync;
-  ops.fallocate = xmp_fallocate;
-  ops.lseek = xmp_lseek;
+  ops.init = apfs_fuse_init;
+  ops.destroy = apfs_fuse_destroy;
+  ops.getattr = apfs_fuse_getattr;
+  ops.access = apfs_fuse_access;
+  ops.readlink = apfs_fuse_readlink;
+  ops.readdir = apfs_fuse_readdir;
+  ops.mknod = apfs_fuse_mknod;
+  ops.mkdir = apfs_fuse_mkdir;
+  ops.symlink = apfs_fuse_symlink;
+  ops.unlink = apfs_fuse_unlink;
+  ops.rmdir = apfs_fuse_rmdir;
+  ops.rename = apfs_fuse_rename;
+  ops.link = apfs_fuse_link;
+  ops.chmod = apfs_fuse_chmod;
+  ops.chown = apfs_fuse_chown;
+  ops.truncate = apfs_fuse_truncate;
+  ops.open = apfs_fuse_open;
+  ops.create = apfs_fuse_create;
+  ops.read = apfs_fuse_read;
+  ops.write = apfs_fuse_write;
+  ops.statfs = apfs_fuse_statfs;
+  ops.release = apfs_fuse_release;
+  ops.fsync = apfs_fuse_fsync;
+  ops.fallocate = apfs_fuse_fallocate;
+  ops.lseek = apfs_fuse_lseek;
   return ops;
 })();
 

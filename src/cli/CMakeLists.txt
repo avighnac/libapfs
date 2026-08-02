@@ -89,8 +89,102 @@ if(LINUX)
   target_link_libraries(apfs PRIVATE fuse3_static)
 
   target_compile_definitions(apfs PRIVATE FUSE_USE_VERSION=35)
-endif()
+elseif(WIN32)
+  include(ExternalProject)
 
+  set(WINFSP_SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-src")
+  set(WINFSP_OUTPUT_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-build")
+
+  if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
+    set(WINFSP_PLATFORM ARM64)
+    set(WINFSP_SUFFIX a64)
+  elseif(CMAKE_VS_PLATFORM_NAME STREQUAL "Win32")
+    set(WINFSP_PLATFORM Win32)
+    set(WINFSP_SUFFIX x86)
+  else()
+    set(WINFSP_PLATFORM x64)
+    set(WINFSP_SUFFIX x64)
+  endif()
+
+  set(WINFSP_LIBRARY "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.lib")
+  set(WINFSP_DLL "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.dll")
+
+  file(MAKE_DIRECTORY
+    "${WINFSP_SOURCE_DIR}"
+    "${WINFSP_OUTPUT_DIR}"
+  )
+
+  if(EXISTS "${WINFSP_SOURCE_DIR}/build/VStudio/winfsp.sln")
+    set(WINFSP_DOWNLOAD_ARGS
+      DOWNLOAD_COMMAND ""
+      UPDATE_COMMAND ""
+    )
+  else()
+    set(WINFSP_DOWNLOAD_ARGS
+      GIT_REPOSITORY https://github.com/winfsp/winfsp.git
+      GIT_TAG v2.1
+      GIT_SHALLOW TRUE
+    )
+  endif()
+
+  find_program(MSBUILD_EXECUTABLE MSBuild REQUIRED)
+
+  ExternalProject_Add(
+    winfsp_external
+
+    ${WINFSP_DOWNLOAD_ARGS}
+
+    SOURCE_DIR "${WINFSP_SOURCE_DIR}"
+
+    CONFIGURE_COMMAND ""
+
+    BUILD_COMMAND
+      "${MSBUILD_EXECUTABLE}"
+      "${WINFSP_SOURCE_DIR}/build/VStudio/winfsp_dll.vcxproj"
+      /m
+      /p:Configuration=Release
+      /p:Platform=${WINFSP_PLATFORM}
+      /p:WindowsTargetPlatformVersion=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}
+      /p:OutDir=${WINFSP_OUTPUT_DIR}/
+
+    INSTALL_COMMAND ""
+
+    BUILD_BYPRODUCTS
+      "${WINFSP_LIBRARY}"
+      "${WINFSP_DLL}"
+  )
+
+  add_library(winfsp_import SHARED IMPORTED GLOBAL)
+
+  set_target_properties(winfsp_import PROPERTIES
+    IMPORTED_IMPLIB "${WINFSP_LIBRARY}"
+    IMPORTED_LOCATION "${WINFSP_DLL}"
+  )
+
+  add_dependencies(winfsp_import winfsp_external)
+
+  add_library(fuse3_headers INTERFACE)
+
+  target_include_directories(fuse3_headers INTERFACE
+    "${WINFSP_SOURCE_DIR}/inc"
+    "${WINFSP_SOURCE_DIR}/inc/fuse3"
+  )
+
+  target_link_libraries(apfs PRIVATE
+    fuse3_headers
+    winfsp_import
+    delayimp
+  )
+
+  target_link_options(apfs PRIVATE
+    "/DELAYLOAD:winfsp-${WINFSP_SUFFIX}.dll"
+  )
+
+  target_compile_definitions(apfs PRIVATE
+    FUSE_USE_VERSION=35
+  )
+endif()
+  
 if (BUILD_STATIC)
   if (APPLE)
     target_link_options(apfs PRIVATE -static-libstdc++ -static-libgcc)

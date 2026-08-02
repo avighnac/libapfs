@@ -305,3 +305,6 @@
 
 #define BTREE_NODE_SIZE_DEFAULT 4096
 #define BTREE_NODE_MIN_ENTRY_COUNT 4
+
+// I've added this one
+#define APFS_MAX_FILENAME_LENGTH 255

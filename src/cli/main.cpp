@@ -7,6 +7,12 @@
 #include <vector>
 #include <verb.hpp>
 
+#if defined(_WIN32) || defined(_WIN64)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 int _main(int argc, const std::vector<std::string> &_argv);
 
 void print_error(const std::string &msg) {
@@ -38,6 +44,11 @@ std::map<std::string, std::string> parse_options(const std::vector<std::string> 
 }
 
 int main(int argc, char **_argv) {
+#if defined(_WIN32) || defined(_WIN64)
+  SetConsoleOutputCP(CP_UTF8);
+  SetConsoleCP(CP_UTF8);
+#endif
+
   // Copy over command line arguments
   std::vector<std::string> argv(argc);
   for (int i = 0; i < argc; ++i) {

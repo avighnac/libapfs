@@ -70,18 +70,22 @@ To find out which options are required for a given verb, run apfs help <verb>.
 
 `ls` and `cat` work on exact paths.
 
-Additionally, on Linux, there is also:
+Additionally, on Linux and Windows, there is also:
 
 ```
 ├─ mount     (read-only) Mount an APFS volume
+```
+
+And on only Linux (right now):
+```
 └─ unmount   Unmount an APFS volume mounted with the mount verb
 ```
 
 # Examples
 
-## Mounting (only Linux)
+## Mounting (Linux and Windows)
 
-Thanks to [libfuse](https://github.com/libfuse/libfuse)!
+Thanks to [libfuse](https://github.com/libfuse/libfuse) and [winfsp](https://github.com/winfsp/winfsp)!
 
 ```bash
 ./apfs mount /path/to/disk --mount /path/to/mount
@@ -89,11 +93,13 @@ Thanks to [libfuse](https://github.com/libfuse/libfuse)!
 
 The contents of the APFS volume will then be accessible at `/path/to/mount` like any other directory.
 
-To unmount, run:
+To unmount on Linux, run:
 
 ```bash
 ./apfs unmount --mount /path/to/mount
 ```
+
+On Windows, the filesystem will remain mounted for as long as the `apfs.exe` process runs.
 
 ## Without mounting (all other operating systems)
 
