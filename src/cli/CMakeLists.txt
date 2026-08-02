@@ -95,6 +95,13 @@ elseif(WIN32)
   set(WINFSP_SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-src")
   set(WINFSP_OUTPUT_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-build")
 
+  # WinFsp uses $(OutDir) directly inside cmd.exe copy commands.
+  file(TO_NATIVE_PATH
+    "${WINFSP_OUTPUT_DIR}"
+    WINFSP_OUTPUT_DIR_NATIVE
+  )
+  string(APPEND WINFSP_OUTPUT_DIR_NATIVE "\\")
+
   if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
     set(WINFSP_PLATFORM ARM64)
     set(WINFSP_SUFFIX a64)
@@ -150,7 +157,7 @@ elseif(WIN32)
       /p:Configuration=Release
       /p:Platform=${WINFSP_PLATFORM}
       /p:WindowsTargetPlatformVersion=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}
-      /p:OutDir=${WINFSP_OUTPUT_DIR}/
+      "/p:OutDir=${WINFSP_OUTPUT_DIR_NATIVE}"
 
     INSTALL_COMMAND ""
 
