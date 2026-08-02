@@ -90,13 +90,31 @@ if(LINUX)
 
   target_compile_definitions(apfs PRIVATE FUSE_USE_VERSION=35)
 elseif(WIN32)
-  include(ExternalProject)
+  include(FetchContent)
+
+  if(NOT CMAKE_GENERATOR MATCHES "^Visual Studio")
+    message(FATAL_ERROR
+      "The Windows CLI with WinFsp requires a Visual Studio generator"
+    )
+  endif()
 
   set(WINFSP_SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-src")
   set(WINFSP_OUTPUT_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-build")
 
-  set(WINFSP_PLATFORM x64)
-  set(WINFSP_SUFFIX x64)
+  if(CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
+    set(WINFSP_PLATFORM ARM64)
+    set(WINFSP_SUFFIX a64)
+  elseif(CMAKE_GENERATOR_PLATFORM STREQUAL "Win32")
+    set(WINFSP_PLATFORM Win32)
+    set(WINFSP_SUFFIX x86)
+  elseif(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+    set(WINFSP_PLATFORM x64)
+    set(WINFSP_SUFFIX x64)
+  else()
+    message(FATAL_ERROR
+      "Unsupported Windows architecture: ${CMAKE_GENERATOR_PLATFORM}"
+    )
+  endif()
 
   set(WINFSP_LIBRARY
     "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.lib"
@@ -106,50 +124,98 @@ elseif(WIN32)
     "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.dll"
   )
 
-  file(MAKE_DIRECTORY
-    "${WINFSP_SOURCE_DIR}"
-    "${WINFSP_OUTPUT_DIR}"
+  FetchContent_Declare(
+    winfsp
+    GIT_REPOSITORY https://github.com/winfsp/winfsp.git
+    GIT_TAG v2.1
+    GIT_SHALLOW TRUE
+    GIT_SUBMODULES ""
+    SOURCE_DIR "${WINFSP_SOURCE_DIR}"
   )
 
-  if(EXISTS "${WINFSP_SOURCE_DIR}/build/VStudio/winfsp.sln")
-    set(WINFSP_DOWNLOAD_ARGS
-      DOWNLOAD_COMMAND ""
-      UPDATE_COMMAND ""
-    )
-  else()
-    set(WINFSP_DOWNLOAD_ARGS
-      GIT_REPOSITORY https://github.com/winfsp/winfsp.git
-      GIT_TAG v2.1
-      GIT_SHALLOW TRUE
-    )
+  FetchContent_GetProperties(winfsp)
+
+  if(NOT winfsp_POPULATED)
+    FetchContent_Populate(winfsp)
   endif()
 
-  set(MSBUILD_EXECUTABLE "${CMAKE_VS_MSBUILD_COMMAND}")
+  file(MAKE_DIRECTORY "${WINFSP_OUTPUT_DIR}")
 
-  ExternalProject_Add(
-    winfsp_external
+  include_external_msproject(
+    winfsp_dll
+    "${WINFSP_SOURCE_DIR}/build/VStudio/winfsp_dll.vcxproj"
+    PLATFORM "${WINFSP_PLATFORM}"
+  )
 
-    ${WINFSP_DOWNLOAD_ARGS}
+  set(WINFSP_STAGE_SCRIPT
+    "${CMAKE_CURRENT_BINARY_DIR}/stage_winfsp.cmake"
+  )
 
-    SOURCE_DIR "${WINFSP_SOURCE_DIR}"
+  file(WRITE "${WINFSP_STAGE_SCRIPT}" [=[
+file(GLOB_RECURSE WINFSP_BUILT_LIB
+  "${WINFSP_SOURCE_DIR}/build/VStudio/build/winfsp-${WINFSP_SUFFIX}.lib"
+  "${WINFSP_SOURCE_DIR}/build/VStudio/build/*/winfsp-${WINFSP_SUFFIX}.lib"
+  "${WINFSP_SOURCE_DIR}/build/VStudio/build/*/*/winfsp-${WINFSP_SUFFIX}.lib"
+  "${WINFSP_SOURCE_DIR}/build/VStudio/build/*/*/*/winfsp-${WINFSP_SUFFIX}.lib"
+)
 
-    CONFIGURE_COMMAND ""
+file(GLOB_RECURSE WINFSP_BUILT_DLL
+  "${WINFSP_SOURCE_DIR}/build/VStudio/build/winfsp-${WINFSP_SUFFIX}.dll"
+  "${WINFSP_SOURCE_DIR}/build/VStudio/build/*/winfsp-${WINFSP_SUFFIX}.dll"
+  "${WINFSP_SOURCE_DIR}/build/VStudio/build/*/*/winfsp-${WINFSP_SUFFIX}.dll"
+  "${WINFSP_SOURCE_DIR}/build/VStudio/build/*/*/*/winfsp-${WINFSP_SUFFIX}.dll"
+)
 
-    BUILD_COMMAND
-      "${MSBUILD_EXECUTABLE}"
-      "${WINFSP_SOURCE_DIR}/build/VStudio/winfsp_dll.vcxproj"
-      /m
-      /p:Configuration=Release
-      /p:Platform=x64
-      /p:WindowsTargetPlatformVersion=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}
-      /p:OutDir=${WINFSP_OUTPUT_DIR}/
+if(NOT WINFSP_BUILT_LIB)
+  message(FATAL_ERROR
+    "Could not find the built winfsp-${WINFSP_SUFFIX}.lib"
+  )
+endif()
 
-    INSTALL_COMMAND ""
+if(NOT WINFSP_BUILT_DLL)
+  message(FATAL_ERROR
+    "Could not find the built winfsp-${WINFSP_SUFFIX}.dll"
+  )
+endif()
 
-    BUILD_BYPRODUCTS
+list(GET WINFSP_BUILT_LIB 0 WINFSP_BUILT_LIB_PATH)
+list(GET WINFSP_BUILT_DLL 0 WINFSP_BUILT_DLL_PATH)
+
+file(MAKE_DIRECTORY "${WINFSP_OUTPUT_DIR}")
+
+file(COPY_FILE
+  "${WINFSP_BUILT_LIB_PATH}"
+  "${WINFSP_LIBRARY}"
+  ONLY_IF_DIFFERENT
+)
+
+file(COPY_FILE
+  "${WINFSP_BUILT_DLL_PATH}"
+  "${WINFSP_DLL}"
+  ONLY_IF_DIFFERENT
+)
+]=])
+
+  add_custom_target(
+    winfsp_stage
+
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DWINFSP_SOURCE_DIR=${WINFSP_SOURCE_DIR}"
+      "-DWINFSP_OUTPUT_DIR=${WINFSP_OUTPUT_DIR}"
+      "-DWINFSP_LIBRARY=${WINFSP_LIBRARY}"
+      "-DWINFSP_DLL=${WINFSP_DLL}"
+      "-DWINFSP_SUFFIX=${WINFSP_SUFFIX}"
+      -P "${WINFSP_STAGE_SCRIPT}"
+
+    BYPRODUCTS
       "${WINFSP_LIBRARY}"
       "${WINFSP_DLL}"
+
+    VERBATIM
   )
+
+  add_dependencies(winfsp_stage winfsp_dll)
 
   add_library(winfsp_import SHARED IMPORTED GLOBAL)
 
@@ -158,15 +224,14 @@ elseif(WIN32)
     IMPORTED_LOCATION "${WINFSP_DLL}"
   )
 
-  add_dependencies(winfsp_import winfsp_external)
-  add_dependencies(apfs winfsp_external)
-
   add_library(fuse3_headers INTERFACE)
 
   target_include_directories(fuse3_headers INTERFACE
     "${WINFSP_SOURCE_DIR}/inc"
     "${WINFSP_SOURCE_DIR}/inc/fuse3"
   )
+
+  add_dependencies(apfs winfsp_stage)
 
   target_link_libraries(apfs PRIVATE
     fuse3_headers
@@ -175,7 +240,7 @@ elseif(WIN32)
   )
 
   target_link_options(apfs PRIVATE
-    "/DELAYLOAD:winfsp-x64.dll"
+    "/DELAYLOAD:winfsp-${WINFSP_SUFFIX}.dll"
   )
 
   target_compile_definitions(apfs PRIVATE
