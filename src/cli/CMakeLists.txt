@@ -95,25 +95,8 @@ elseif(WIN32)
   set(WINFSP_SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-src")
   set(WINFSP_OUTPUT_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-build")
 
-  # WinFsp concatenates filenames directly onto $(OutDir).
-  # Use native separators internally, but end with "/" so the quoted
-  # MSBuild argument does not end in a backslash.
-  file(TO_NATIVE_PATH
-    "${WINFSP_OUTPUT_DIR}"
-    WINFSP_OUTPUT_DIR_NATIVE
-  )
-  string(APPEND WINFSP_OUTPUT_DIR_NATIVE "/")
-
-  if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
-    set(WINFSP_PLATFORM ARM64)
-    set(WINFSP_SUFFIX a64)
-  elseif(CMAKE_VS_PLATFORM_NAME STREQUAL "Win32")
-    set(WINFSP_PLATFORM Win32)
-    set(WINFSP_SUFFIX x86)
-  else()
-    set(WINFSP_PLATFORM x64)
-    set(WINFSP_SUFFIX x64)
-  endif()
+  set(WINFSP_PLATFORM x64)
+  set(WINFSP_SUFFIX x64)
 
   set(WINFSP_LIBRARY
     "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.lib"
@@ -157,9 +140,9 @@ elseif(WIN32)
       "${WINFSP_SOURCE_DIR}/build/VStudio/winfsp_dll.vcxproj"
       /m
       /p:Configuration=Release
-      /p:Platform=${WINFSP_PLATFORM}
+      /p:Platform=x64
       /p:WindowsTargetPlatformVersion=${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}
-      "/p:OutDir=${WINFSP_OUTPUT_DIR_NATIVE}"
+      /p:OutDir=${WINFSP_OUTPUT_DIR}/
 
     INSTALL_COMMAND ""
 
@@ -192,7 +175,7 @@ elseif(WIN32)
   )
 
   target_link_options(apfs PRIVATE
-    "/DELAYLOAD:winfsp-${WINFSP_SUFFIX}.dll"
+    "/DELAYLOAD:winfsp-x64.dll"
   )
 
   target_compile_definitions(apfs PRIVATE

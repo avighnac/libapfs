@@ -26,5 +26,5 @@ typedef std::string bytes_t;
 
 #ifdef _MSC_VER
 #include <BaseTsd.h>
-typedef SSIZE_T ssize_t;
+typedef SSIZE_T apfs_ssize_t;
 #endif

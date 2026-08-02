@@ -236,7 +236,7 @@ inode_t directory_entry::load_inode() const {
   return {inode_num, inode_val, xfields};
 }
 
-void directory_entry::read_file(std::ostream &os, off_t offset, ssize_t size) {
+void directory_entry::read_file(std::ostream &os, off_t offset, apfs_ssize_t size) {
   if (type != DIRENT_FILE) {
     throw Error("\"" + name + "\" is not a file");
   }
@@ -254,7 +254,7 @@ void directory_entry::read_file(std::ostream &os, off_t offset, ssize_t size) {
   uint64_t private_id = inode_val.private_id;
 
   // Get size of file
-  uint64_t size_remaining = size != -1 ? std::min(size, (ssize_t)(inode_val.size - offset)) : inode_val.size - offset;
+  uint64_t size_remaining = size != -1 ? std::min(size, (apfs_ssize_t)(inode_val.size - offset)) : inode_val.size - offset;
 
   // Find file extents
   j_file_extent_key_t key;
