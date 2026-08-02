@@ -127,7 +127,8 @@ jobs:
         Copy-Item include/* package-msvc/include -Recurse
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
         Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
-        Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib -DestinationPath build-msvc/libapfs-windows-x86-64-msvc.zip
+        Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
+        Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb -DestinationPath build-msvc/libapfs-windows-x86-64-msvc.zip
 
     - name: Upload executable and library for windows-x86-64
       uses: actions/upload-artifact@v4
@@ -176,8 +177,9 @@ jobs:
         Copy-Item include/* package-msvc/include -Recurse
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
         Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
-        Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib -DestinationPath build-msvc/libapfs-windows-arm64-msvc.zip
-        
+        Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
+        Compress-Archive -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb -DestinationPath build-msvc/libapfs-windows-arm64-msvc.zip
+
     - name: Upload executable and library for windows-arm64
       uses: actions/upload-artifact@v4
       with:
@@ -186,7 +188,7 @@ jobs:
           build-mingw/src/apfs-windows-arm64.exe
           build-mingw/src/libapfs-windows-arm64-mingw.zip
           build-msvc/libapfs-windows-arm64-msvc.zip
-
+          
   build-macos-arm64:
     permissions: write-all
     runs-on: macos-latest
