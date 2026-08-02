@@ -9,6 +9,7 @@ namespace fuse {
 void *apfs_winfsp_init(struct fuse_conn_info* conn, struct fuse_config *) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   ctx->open_files = new std::map<uint64_t, apfs::directory_entry>();
+  ctx->fd = 1;
   conn->want |= conn->capable & FUSE_CAP_READDIRPLUS;
 #if defined(FSP_FUSE_CAP_CASE_INSENSITIVE)
   conn->want |= conn->capable & FSP_FUSE_CAP_CASE_INSENSITIVE;
@@ -89,9 +90,9 @@ int apfs_winfsp_open(const char *path, struct fuse_file_info *fi) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   try {
     apfs::directory_entry ent = ctx->vol->navigate_to(std::string(path));
-    uint64_t inode_num = ent.load_inode().num;
-    ctx->open_files->emplace(inode_num, std::move(ent));
-    fi->fh = inode_num;
+    uint64_t fd = ctx->fd++;
+    ctx->open_files->emplace(fd, std::move(ent));
+    fi->fh = fd;
   } catch (const Error &e) {
     return -ENOENT;
   }

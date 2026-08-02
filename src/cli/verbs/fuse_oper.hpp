@@ -16,6 +16,8 @@ struct fuse_ctx {
   apfs::partition *part;
 
   std::map<uint64_t, apfs::directory_entry> *open_files;
+
+  uint64_t fd;
 };
 
 #ifdef __linux__

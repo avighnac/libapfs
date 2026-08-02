@@ -12,6 +12,7 @@ int readdir_zero_ino = 0;
 void *apfs_fuse_init(struct fuse_conn_info *conn, struct fuse_config *cfg) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   ctx->open_files = new std::map<uint64_t, apfs::directory_entry>();
+  ctx->fd = 1;
   if (!cfg->auto_cache) {
     cfg->entry_timeout = 0;
     cfg->attr_timeout = 0;
@@ -149,9 +150,9 @@ int apfs_fuse_open(const char *path, struct fuse_file_info *fi) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   try {
     apfs::directory_entry ent = ctx->vol->navigate_to(std::string(path));
-    uint64_t inode_num = ent.load_inode().num;
-    ctx->open_files->emplace(inode_num, std::move(ent));
-    fi->fh = inode_num;
+    uint64_t fd = ctx->fd++;
+    ctx->open_files->emplace(fd, std::move(ent));
+    fi->fh = fd;
   } catch (const Error &e) {
     return -ENOENT;
   }
