@@ -99,7 +99,7 @@ int apfs_winfsp_open(const char *path, struct fuse_file_info *fi) {
   return 0;
 }
 
-int apfs_winfsp_read(const char *, char *buf, size_t size, fuse_off_t offset, struct fuse_file_info *fi) {
+int apfs_winfsp_read(const char *path, char *buf, size_t size, fuse_off_t offset, struct fuse_file_info *fi) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   int res;
 
