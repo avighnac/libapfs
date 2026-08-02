@@ -95,12 +95,14 @@ elseif(WIN32)
   set(WINFSP_SOURCE_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-src")
   set(WINFSP_OUTPUT_DIR "${FETCHCONTENT_BASE_DIR}/winfsp-build")
 
-  # WinFsp uses $(OutDir) directly inside cmd.exe copy commands.
+  # WinFsp concatenates filenames directly onto $(OutDir).
+  # Use native separators internally, but end with "/" so the quoted
+  # MSBuild argument does not end in a backslash.
   file(TO_NATIVE_PATH
     "${WINFSP_OUTPUT_DIR}"
     WINFSP_OUTPUT_DIR_NATIVE
   )
-  string(APPEND WINFSP_OUTPUT_DIR_NATIVE "\\")
+  string(APPEND WINFSP_OUTPUT_DIR_NATIVE "/")
 
   if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
     set(WINFSP_PLATFORM ARM64)
