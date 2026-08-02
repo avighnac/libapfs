@@ -157,12 +157,12 @@ jobs:
         $generator = "Visual Studio $major $year"
         Write-Host "Using generator: $generator"
 
-        cmake -S . -B build `
+        cmake -S . -B build-msvc `
           -G $generator `
           -A x64 `
           -DBUILD_STATIC=True `
           -DBUILD_CLI=True
-        cmake --build build --config Release --parallel -- `
+        cmake --build build-msvc --config Release --parallel -- `
           /p:WindowsTargetPlatformVersion=10.0
 
     - name: Package MSVC build
@@ -248,12 +248,12 @@ jobs:
         $generator = "Visual Studio $major $year"
         Write-Host "Using generator: $generator"
 
-        cmake -S . -B build `
+        cmake -S . -B build-msvc `
           -G $generator `
           -A ARM64 `
           -DBUILD_STATIC=True `
           -DBUILD_CLI=True
-        cmake --build build --config Release --parallel -- `
+        cmake --build build-msvc --config Release --parallel -- `
           /p:WindowsTargetPlatformVersion=10.0
 
     - name: Package MSVC build
