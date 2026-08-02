@@ -117,8 +117,8 @@ jobs:
     - name: Build with MSVC
       run: |
         cmake -S . -B build-msvc -A x64 -DBUILD_STATIC=True -DBUILD_CLI=True
-        cmake --build build-msvc --config Release --parallel
         cmake --build build-msvc --config Debug --parallel
+        cmake --build build-msvc --config Release --parallel
 
     - name: Package MSVC build
       run: |
@@ -167,8 +167,8 @@ jobs:
     - name: Build with MSVC
       run: |
         cmake -S . -B build-msvc -A ARM64 -DBUILD_STATIC=True -DBUILD_CLI=True
-        cmake --build build-msvc --config Release --parallel
         cmake --build build-msvc --config Debug --parallel
+        cmake --build build-msvc --config Release --parallel
 
     - name: Package MSVC build
       run: |

@@ -106,8 +106,13 @@ elseif(WIN32)
     set(WINFSP_SUFFIX x64)
   endif()
 
-  set(WINFSP_LIBRARY "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.lib")
-  set(WINFSP_DLL "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.dll")
+  set(WINFSP_LIBRARY
+    "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.lib"
+  )
+
+  set(WINFSP_DLL
+    "${WINFSP_OUTPUT_DIR}/winfsp-${WINFSP_SUFFIX}.dll"
+  )
 
   file(MAKE_DIRECTORY
     "${WINFSP_SOURCE_DIR}"
@@ -162,6 +167,7 @@ elseif(WIN32)
   )
 
   add_dependencies(winfsp_import winfsp_external)
+  add_dependencies(apfs winfsp_external)
 
   add_library(fuse3_headers INTERFACE)
 
@@ -184,15 +190,28 @@ elseif(WIN32)
     FUSE_USE_VERSION=35
   )
 endif()
-  
-if (BUILD_STATIC)
-  if (APPLE)
-    target_link_options(apfs PRIVATE -static-libstdc++ -static-libgcc)
+
+if(BUILD_STATIC)
+  if(MSVC)
+    set_property(
+      TARGET apfs
+      PROPERTY MSVC_RUNTIME_LIBRARY
+      "MultiThreaded"
+    )
+  elseif(APPLE)
+    target_link_options(apfs PRIVATE
+      -static-libstdc++
+      -static-libgcc
+    )
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_link_options(apfs PRIVATE
+      -static
+    )
   else()
-    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-      target_link_options(apfs PRIVATE -static)
-    else()
-      target_link_options(apfs PRIVATE -static -static-libstdc++ -static-libgcc)
-    endif()
+    target_link_options(apfs PRIVATE
+      -static
+      -static-libstdc++
+      -static-libgcc
+    )
   endif()
 endif()
