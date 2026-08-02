@@ -127,7 +127,7 @@ elseif(WIN32)
     )
   endif()
 
-  find_program(MSBUILD_EXECUTABLE MSBuild REQUIRED)
+  set(MSBUILD_EXECUTABLE "${CMAKE_VS_MSBUILD_COMMAND}")
 
   ExternalProject_Add(
     winfsp_external

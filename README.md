@@ -32,6 +32,8 @@ Download the appropriate executable or library package for your architecture fro
 https://github.com/avighnac/libapfs/releases
 ```
 
+**Additionally**, if you are using the `mount` verb, you will need to **install WinFsp** from [here](https://github.com/winfsp/winfsp/releases/tag/v2.1). We've tested with v2.1, although it should work with later versions too.
+
 # Compilation
 
 Compiling from source is pretty simple:
