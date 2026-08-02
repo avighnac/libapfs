@@ -653,7 +653,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build-mingw/src/libapfs-windows-x86-64-mingw.zip
+        asset_path: build-mingw/libapfs-windows-x86-64-mingw.zip
         asset_name: libapfs-windows-x86-64-mingw.zip
         asset_content_type: application/zip
 
@@ -673,7 +673,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build-mingw/src/libapfs-windows-arm64-mingw.zip
+        asset_path: build-mingw/libapfs-windows-arm64-mingw.zip
         asset_name: libapfs-windows-arm64-mingw.zip
         asset_content_type: application/zip
 
