@@ -105,7 +105,11 @@ int apfs_winfsp_read(const char *, char *buf, size_t size, fuse_off_t offset, st
 
   try {
     std::ostringstream oss;
-    ctx->open_files->at(fi->fh).read_file(oss, offset, size);
+    if (fi && fi->fh) {
+      ctx->open_files->at(fi->fh).read_file(oss, offset, size);
+    } else {
+      ctx->vol->navigate_to(std::string(path)).read_file(oss, offset, size);
+    }
 
     const std::string contents = oss.str();
     const size_t len = std::min(size, contents.size());
@@ -186,7 +190,7 @@ int apfs_winfsp_releasedir(const char *path, struct fuse_file_info *fi) {
 int apfs_winfsp_readdir(const char *path, void *buf, fuse_fill_dir_t filler, fuse_off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags) {
   fuse_ctx *ctx = (fuse_ctx *)fuse_get_context()->private_data;
   try {
-    apfs::directory_entry dirent = ctx->open_files->at(fi->fh);
+    apfs::directory_entry dirent = (fi && fi->fh) ? ctx->open_files->at(fi->fh) : ctx->vol->navigate_to(std::string(path));
     auto chs = dirent.list_children();
     for (size_t i = offset; i < chs.size(); ++i) {
       auto &ch = chs[i];

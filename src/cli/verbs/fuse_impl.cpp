@@ -164,7 +164,6 @@ int apfs_fuse_read(const char *path, char *buf, size_t size, off_t offset, struc
   int res;
 
   try {
-    res = 0;
     std::ostringstream oss;
     if (fi && fi->fh) {
       ctx->open_files->at(fi->fh).read_file(oss, offset, size);
