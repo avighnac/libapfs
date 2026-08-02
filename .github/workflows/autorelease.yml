@@ -204,7 +204,7 @@ jobs:
         GXX="$(find "$(brew --prefix gcc)/bin" -maxdepth 1 -type f -name 'g++-[0-9]*' | head -1)"
 
         cmake -S . -B build \
-          -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True \
+          -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True -DBUILD_CLI=True \
           -DCMAKE_C_COMPILER="$GCC" \
           -DCMAKE_CXX_COMPILER="$GXX"
 
@@ -244,7 +244,7 @@ jobs:
         GXX="$(find "$(brew --prefix gcc)/bin" -maxdepth 1 -type f -name 'g++-[0-9]*' | head -1)"
 
         cmake -S . -B build \
-          -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True \
+          -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=True -DBUILD_CLI=True \
           -DCMAKE_C_COMPILER="$GCC" \
           -DCMAKE_CXX_COMPILER="$GXX"
 
