@@ -3,18 +3,28 @@
 #include <libapfs/util.hpp>
 #include <memory>
 
+#ifdef _WIN32
+#define apfs_fseek _fseeki64
+#else
+#define apfs_fseek fseeko
+#endif
+
 // Read a block and return its raw bytes
 bytes_t BlockReader::read_block(uint64_t block_num) const {
-  fseek(*f, block_num * BLOCK_SIZE + offset, SEEK_SET);
+  int res = apfs_fseek(*f, block_num * BLOCK_SIZE + offset, SEEK_SET);
+  assert(res == 0);
   bytes_t data(BLOCK_SIZE, 0);
-  fread((char *)data.data(), BLOCK_SIZE, 1, *f);
+  res = fread((char *)data.data(), BLOCK_SIZE, 1, *f);
+  assert(res == 1);
   return data;
 }
 
 bytes_t BlockReader::read_blocks(uint64_t block_num, uint64_t num_blocks) const {
-  fseek(*f, block_num * BLOCK_SIZE + offset, SEEK_SET);
+  int res = apfs_fseek(*f, block_num * BLOCK_SIZE + offset, SEEK_SET);
+  assert(res == 0);
   bytes_t data(num_blocks * BLOCK_SIZE, 0);
-  fread((char *)data.data(), BLOCK_SIZE, num_blocks, *f);
+  res = fread((char *)data.data(), BLOCK_SIZE, num_blocks, *f);
+  assert(res == num_blocks);
   return data;
 }
 

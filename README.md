@@ -36,15 +36,23 @@ https://github.com/avighnac/libapfs/releases
 
 # Compilation
 
+## Unix (Linux and macOS)
+
 Compiling from source is pretty simple:
 
 ```
 git clone https://github.com/avighnac/libapfs
 cd libapfs
 
-cmake -S. -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S. -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_CLI=True
 cmake --build build
 ```
+
+## Windows
+
+On Windows, things are a bit more complicated. To begin with, due to the dependency on WinFsp, you (unfortunately) need to use `msvc` to build the CLI tool. So, you will need to install "MSVC Build Tools for x64/x86 Latest" from the Visual Studio installer.
+
+After this, you can use the provided `build.ps1` script to invoke `cmake` with the right arguments.
 
 # Structure
 
