@@ -92,19 +92,23 @@ partition disk::get_partition(const std::string &guid) {
   throw Error("no partition with guid " + guid + " found");
 }
 
-partition::partition(const std::string &filename) : reader(filename, true), part(reader) {
-  num_blocks = part.superblock.nx_block_count;
-  block_size = part.superblock.nx_block_size;
-}
-
-partition::partition(const partition_info_t &_part, const BlockReader &_reader) : partition_info_t(_part), reader(_reader, true, addr), part(_reader, addr) {
+void partition::_init() {
   num_blocks = part.superblock.nx_block_count;
   block_size = part.superblock.nx_block_size;
 
   for (size_t i = 0; i < part.volumes.size(); ++i) {
     const auto &spblk = part.volumes[i];
     volumes.push_back({spblk, reader});
+    bytes_used = volumes.back().size;
   }
+}
+
+partition::partition(const std::string &filename) : reader(filename, true), part(reader) {
+  _init();
+}
+
+partition::partition(const partition_info_t &_part, const BlockReader &_reader) : partition_info_t(_part), reader(_reader, true, addr), part(_reader, addr) {
+  _init();
 }
 
 /// @brief Search for a volume by name

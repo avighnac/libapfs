@@ -99,11 +99,15 @@ class partition : public partition_info_t {
   BlockReader reader;
   Partition part;
 
+  void _init();
+
 public:
   // Number of blocks
   uint64_t num_blocks;
   // Size of each block
   uint32_t block_size;
+  // The total number of bytes used: is just the sum of all volume sizes
+  uint64_t bytes_used;
 
   std::vector<volume> volumes;
 
