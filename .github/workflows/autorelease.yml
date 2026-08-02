@@ -233,7 +233,7 @@ jobs:
         $installation = & $vswhere `
           -latest `
           -products * `
-          -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+          -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
           -format json |
           ConvertFrom-Json |
           Select-Object -First 1
