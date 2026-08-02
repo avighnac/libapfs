@@ -89,356 +89,356 @@ jobs:
           build/src/apfs-linux-arm64
           build/src/libapfs-linux-arm64.zip
 
-build-windows-x86:
-  permissions: write-all
-  runs-on: windows-latest
+  build-windows-x86:
+    permissions: write-all
+    runs-on: windows-latest
 
-  steps:
-  - name: Checkout
-    uses: actions/checkout@v6
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
 
-  - name: Install packages
-    run: |
-      Invoke-WebRequest `
-        -OutFile file.zip `
-        https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r6/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r6.zip
+    - name: Install packages
+      run: |
+        Invoke-WebRequest `
+          -OutFile file.zip `
+          https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r6/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r6.zip
 
-      Expand-Archive file.zip -DestinationPath .
+        Expand-Archive file.zip -DestinationPath .
 
-  - name: Build with MinGW
-    run: |
-      $toolroot = Join-Path $PWD "mingw64"
+    - name: Build with MinGW
+      run: |
+        $toolroot = Join-Path $PWD "mingw64"
 
-      cmake -S . -B build-mingw `
-        -G "MinGW Makefiles" `
-        -DCMAKE_BUILD_TYPE=Release `
-        -DBUILD_STATIC=True `
-        -DCMAKE_C_COMPILER="$toolroot/bin/gcc.exe" `
-        -DCMAKE_CXX_COMPILER="$toolroot/bin/g++.exe"
+        cmake -S . -B build-mingw `
+          -G "MinGW Makefiles" `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DBUILD_STATIC=True `
+          -DCMAKE_C_COMPILER="$toolroot/bin/gcc.exe" `
+          -DCMAKE_CXX_COMPILER="$toolroot/bin/g++.exe"
 
-      if ($LASTEXITCODE -ne 0) {
+        if ($LASTEXITCODE -ne 0) {
+          exit $LASTEXITCODE
+        }
+
+        cmake --build build-mingw `
+          --target libapfs `
+          --parallel
+
         exit $LASTEXITCODE
-      }
 
-      cmake --build build-mingw `
-        --target libapfs `
-        --parallel
+    - name: Package MinGW build
+      run: |
+        New-Item -ItemType Directory -Force package-mingw/include
 
-      exit $LASTEXITCODE
+        Copy-Item include/* package-mingw/include -Recurse
+        Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
 
-  - name: Package MinGW build
-    run: |
-      New-Item -ItemType Directory -Force package-mingw/include
+        Compress-Archive `
+          -Path package-mingw/include,package-mingw/libapfs.a `
+          -DestinationPath build-mingw/libapfs-windows-x86-64-mingw.zip
 
-      Copy-Item include/* package-mingw/include -Recurse
-      Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
+    - name: Build MSVC Debug library
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 
-      Compress-Archive `
-        -Path package-mingw/include,package-mingw/libapfs.a `
-        -DestinationPath build-mingw/libapfs-windows-x86-64-mingw.zip
+        $installation = & $vswhere `
+          -latest `
+          -products * `
+          -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+          -format json |
+          ConvertFrom-Json |
+          Select-Object -First 1
 
-  - name: Build MSVC Debug library
-    run: |
-      $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (-not $installation) {
+          throw "No Visual Studio installation with x64 C++ tools found."
+        }
 
-      $installation = & $vswhere `
-        -latest `
-        -products * `
-        -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-        -format json |
-        ConvertFrom-Json |
-        Select-Object -First 1
+        $major = [int]($installation.installationVersion.Split('.')[0])
 
-      if (-not $installation) {
-        throw "No Visual Studio installation with x64 C++ tools found."
-      }
+        if ($installation.displayName -notmatch '(\d{4})') {
+          throw "Could not determine Visual Studio year from: $($installation.displayName)"
+        }
 
-      $major = [int]($installation.installationVersion.Split('.')[0])
+        $year = $Matches[1]
+        $generator = "Visual Studio $major $year"
 
-      if ($installation.displayName -notmatch '(\d{4})') {
-        throw "Could not determine Visual Studio year from: $($installation.displayName)"
-      }
+        Write-Host "Using generator: $generator"
 
-      $year = $Matches[1]
-      $generator = "Visual Studio $major $year"
+        cmake -S . -B build-msvc `
+          -G $generator `
+          -A x64 `
+          -DBUILD_STATIC=True `
+          -DBUILD_CLI=False
 
-      Write-Host "Using generator: $generator"
+        if ($LASTEXITCODE -ne 0) {
+          exit $LASTEXITCODE
+        }
 
-      cmake -S . -B build-msvc `
-        -G $generator `
-        -A x64 `
-        -DBUILD_STATIC=True `
-        -DBUILD_CLI=False
+        cmake --build build-msvc `
+          --config Debug `
+          --target libapfs `
+          --parallel `
+          -- `
+          /p:WindowsTargetPlatformVersion=10.0
 
-      if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
-      }
 
-      cmake --build build-msvc `
-        --config Debug `
-        --target libapfs `
-        --parallel `
-        -- `
-        /p:WindowsTargetPlatformVersion=10.0
+    - name: Stage MSVC Debug library
+      run: |
+        New-Item -ItemType Directory -Force package-msvc/include
 
-      exit $LASTEXITCODE
+        Copy-Item include/* package-msvc/include -Recurse
+        Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
+        Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
 
-  - name: Stage MSVC Debug library
-    run: |
-      New-Item -ItemType Directory -Force package-msvc/include
+    - name: Clean MSVC build
+      run: |
+        if (Test-Path build-msvc) {
+          Remove-Item build-msvc -Recurse -Force
+        }
 
-      Copy-Item include/* package-msvc/include -Recurse
-      Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
-      Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
+        if (Test-Path .cmake-deps) {
+          Remove-Item .cmake-deps -Recurse -Force
+        }
 
-  - name: Clean MSVC build
-    run: |
-      if (Test-Path build-msvc) {
-        Remove-Item build-msvc -Recurse -Force
-      }
+    - name: Build MSVC Release
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 
-      if (Test-Path .cmake-deps) {
-        Remove-Item .cmake-deps -Recurse -Force
-      }
+        $installation = & $vswhere `
+          -latest `
+          -products * `
+          -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+          -format json |
+          ConvertFrom-Json |
+          Select-Object -First 1
 
-  - name: Build MSVC Release
-    run: |
-      $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (-not $installation) {
+          throw "No Visual Studio installation with x64 C++ tools found."
+        }
 
-      $installation = & $vswhere `
-        -latest `
-        -products * `
-        -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-        -format json |
-        ConvertFrom-Json |
-        Select-Object -First 1
+        $major = [int]($installation.installationVersion.Split('.')[0])
 
-      if (-not $installation) {
-        throw "No Visual Studio installation with x64 C++ tools found."
-      }
+        if ($installation.displayName -notmatch '(\d{4})') {
+          throw "Could not determine Visual Studio year from: $($installation.displayName)"
+        }
 
-      $major = [int]($installation.installationVersion.Split('.')[0])
+        $year = $Matches[1]
+        $generator = "Visual Studio $major $year"
 
-      if ($installation.displayName -notmatch '(\d{4})') {
-        throw "Could not determine Visual Studio year from: $($installation.displayName)"
-      }
+        Write-Host "Using generator: $generator"
 
-      $year = $Matches[1]
-      $generator = "Visual Studio $major $year"
+        cmake -S . -B build-msvc `
+          -G $generator `
+          -A x64 `
+          -DBUILD_STATIC=True `
+          -DBUILD_CLI=True
 
-      Write-Host "Using generator: $generator"
+        if ($LASTEXITCODE -ne 0) {
+          exit $LASTEXITCODE
+        }
 
-      cmake -S . -B build-msvc `
-        -G $generator `
-        -A x64 `
-        -DBUILD_STATIC=True `
-        -DBUILD_CLI=True
+        cmake --build build-msvc `
+          --config Release `
+          --parallel `
+          -- `
+          /p:WindowsTargetPlatformVersion=10.0
 
-      if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
-      }
 
-      cmake --build build-msvc `
-        --config Release `
-        --parallel `
-        -- `
-        /p:WindowsTargetPlatformVersion=10.0
+    - name: Package MSVC build
+      run: |
+        Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
+        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-x86-64.exe
 
-      exit $LASTEXITCODE
+        Compress-Archive `
+          -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb `
+          -DestinationPath build-msvc/libapfs-windows-x86-64-msvc.zip
 
-  - name: Package MSVC build
-    run: |
-      Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
-      Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-x86-64.exe
-
-      Compress-Archive `
-        -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb `
-        -DestinationPath build-msvc/libapfs-windows-x86-64-msvc.zip
-
-  - name: Upload executable and library for windows-x86-64
-    uses: actions/upload-artifact@v4
-    with:
-      name: apfs-windows-x86-64
-      path: |
-        build-msvc/apfs-windows-x86-64.exe
-        build-mingw/libapfs-windows-x86-64-mingw.zip
-        build-msvc/libapfs-windows-x86-64-msvc.zip
+    - name: Upload executable and library for windows-x86-64
+      uses: actions/upload-artifact@v4
+      with:
+        name: apfs-windows-x86-64
+        path: |
+          build-msvc/apfs-windows-x86-64.exe
+          build-mingw/libapfs-windows-x86-64-mingw.zip
+          build-msvc/libapfs-windows-x86-64-msvc.zip
 
 
-build-windows-arm64:
-  permissions: write-all
-  runs-on: windows-11-arm
+  build-windows-arm64:
+    permissions: write-all
+    runs-on: windows-11-arm
 
-  steps:
-  - name: Checkout
-    uses: actions/checkout@v6
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v6
 
-  - name: Install packages
-    run: |
-      Invoke-WebRequest `
-        -OutFile file.zip `
-        https://github.com/mstorsjo/llvm-mingw/releases/download/20260311/llvm-mingw-20260311-ucrt-aarch64.zip
+    - name: Install packages
+      run: |
+        Invoke-WebRequest `
+          -OutFile file.zip `
+          https://github.com/mstorsjo/llvm-mingw/releases/download/20260311/llvm-mingw-20260311-ucrt-aarch64.zip
 
-      Expand-Archive file.zip -DestinationPath .
+        Expand-Archive file.zip -DestinationPath .
 
-  - name: Build with MinGW
-    run: |
-      $toolroot = Join-Path $PWD "llvm-mingw-20260311-ucrt-aarch64"
+    - name: Build with MinGW
+      run: |
+        $toolroot = Join-Path $PWD "llvm-mingw-20260311-ucrt-aarch64"
 
-      cmake -S . -B build-mingw `
-        -G "MinGW Makefiles" `
-        -DCMAKE_BUILD_TYPE=Release `
-        -DBUILD_STATIC=True `
-        -DCMAKE_C_COMPILER="$toolroot/bin/clang.exe" `
-        -DCMAKE_CXX_COMPILER="$toolroot/bin/clang++.exe"
+        cmake -S . -B build-mingw `
+          -G "MinGW Makefiles" `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DBUILD_STATIC=True `
+          -DCMAKE_C_COMPILER="$toolroot/bin/clang.exe" `
+          -DCMAKE_CXX_COMPILER="$toolroot/bin/clang++.exe"
 
-      if ($LASTEXITCODE -ne 0) {
+        if ($LASTEXITCODE -ne 0) {
+          exit $LASTEXITCODE
+        }
+
+        cmake --build build-mingw `
+          --target libapfs `
+          --parallel
+
         exit $LASTEXITCODE
-      }
 
-      cmake --build build-mingw `
-        --target libapfs `
-        --parallel
+    - name: Package MinGW build
+      run: |
+        New-Item -ItemType Directory -Force package-mingw/include
 
-      exit $LASTEXITCODE
+        Copy-Item include/* package-mingw/include -Recurse
+        Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
 
-  - name: Package MinGW build
-    run: |
-      New-Item -ItemType Directory -Force package-mingw/include
+        Compress-Archive `
+          -Path package-mingw/include,package-mingw/libapfs.a `
+          -DestinationPath build-mingw/libapfs-windows-arm64-mingw.zip
 
-      Copy-Item include/* package-mingw/include -Recurse
-      Copy-Item build-mingw/src/lib/libapfs.a package-mingw/libapfs.a
+    - name: Build MSVC Debug library
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 
-      Compress-Archive `
-        -Path package-mingw/include,package-mingw/libapfs.a `
-        -DestinationPath build-mingw/libapfs-windows-arm64-mingw.zip
+        $installation = & $vswhere `
+          -latest `
+          -products * `
+          -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
+          -format json |
+          ConvertFrom-Json |
+          Select-Object -First 1
 
-  - name: Build MSVC Debug library
-    run: |
-      $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (-not $installation) {
+          throw "No Visual Studio installation with ARM64 C++ tools found."
+        }
 
-      $installation = & $vswhere `
-        -latest `
-        -products * `
-        -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
-        -format json |
-        ConvertFrom-Json |
-        Select-Object -First 1
+        $major = [int]($installation.installationVersion.Split('.')[0])
 
-      if (-not $installation) {
-        throw "No Visual Studio installation with ARM64 C++ tools found."
-      }
+        if ($installation.displayName -notmatch '(\d{4})') {
+          throw "Could not determine Visual Studio year from: $($installation.displayName)"
+        }
 
-      $major = [int]($installation.installationVersion.Split('.')[0])
+        $year = $Matches[1]
+        $generator = "Visual Studio $major $year"
 
-      if ($installation.displayName -notmatch '(\d{4})') {
-        throw "Could not determine Visual Studio year from: $($installation.displayName)"
-      }
+        Write-Host "Using generator: $generator"
 
-      $year = $Matches[1]
-      $generator = "Visual Studio $major $year"
+        cmake -S . -B build-msvc `
+          -G $generator `
+          -A ARM64 `
+          -DBUILD_STATIC=True `
+          -DBUILD_CLI=False
 
-      Write-Host "Using generator: $generator"
+        if ($LASTEXITCODE -ne 0) {
+          exit $LASTEXITCODE
+        }
 
-      cmake -S . -B build-msvc `
-        -G $generator `
-        -A ARM64 `
-        -DBUILD_STATIC=True `
-        -DBUILD_CLI=False
+        cmake --build build-msvc `
+          --config Debug `
+          --target libapfs `
+          --parallel `
+          -- `
+          /p:WindowsTargetPlatformVersion=10.0
 
-      if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
-      }
 
-      cmake --build build-msvc `
-        --config Debug `
-        --target libapfs `
-        --parallel `
-        -- `
-        /p:WindowsTargetPlatformVersion=10.0
+    - name: Stage MSVC Debug library
+      run: |
+        New-Item -ItemType Directory -Force package-msvc/include
 
-      exit $LASTEXITCODE
+        Copy-Item include/* package-msvc/include -Recurse
+        Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
+        Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
 
-  - name: Stage MSVC Debug library
-    run: |
-      New-Item -ItemType Directory -Force package-msvc/include
+    - name: Clean MSVC build
+      run: |
+        if (Test-Path build-msvc) {
+          Remove-Item build-msvc -Recurse -Force
+        }
 
-      Copy-Item include/* package-msvc/include -Recurse
-      Copy-Item build-msvc/src/lib/Debug/apfs.lib package-msvc/apfsd.lib
-      Copy-Item build-msvc/src/lib/Debug/apfs.pdb package-msvc/apfs.pdb
+        if (Test-Path .cmake-deps) {
+          Remove-Item .cmake-deps -Recurse -Force
+        }
 
-  - name: Clean MSVC build
-    run: |
-      if (Test-Path build-msvc) {
-        Remove-Item build-msvc -Recurse -Force
-      }
+    - name: Build MSVC Release
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 
-      if (Test-Path .cmake-deps) {
-        Remove-Item .cmake-deps -Recurse -Force
-      }
+        $installation = & $vswhere `
+          -latest `
+          -products * `
+          -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
+          -format json |
+          ConvertFrom-Json |
+          Select-Object -First 1
 
-  - name: Build MSVC Release
-    run: |
-      $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (-not $installation) {
+          throw "No Visual Studio installation with ARM64 C++ tools found."
+        }
 
-      $installation = & $vswhere `
-        -latest `
-        -products * `
-        -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
-        -format json |
-        ConvertFrom-Json |
-        Select-Object -First 1
+        $major = [int]($installation.installationVersion.Split('.')[0])
 
-      if (-not $installation) {
-        throw "No Visual Studio installation with ARM64 C++ tools found."
-      }
+        if ($installation.displayName -notmatch '(\d{4})') {
+          throw "Could not determine Visual Studio year from: $($installation.displayName)"
+        }
 
-      $major = [int]($installation.installationVersion.Split('.')[0])
+        $year = $Matches[1]
+        $generator = "Visual Studio $major $year"
 
-      if ($installation.displayName -notmatch '(\d{4})') {
-        throw "Could not determine Visual Studio year from: $($installation.displayName)"
-      }
+        Write-Host "Using generator: $generator"
 
-      $year = $Matches[1]
-      $generator = "Visual Studio $major $year"
+        cmake -S . -B build-msvc `
+          -G $generator `
+          -A ARM64 `
+          -DBUILD_STATIC=True `
+          -DBUILD_CLI=True
 
-      Write-Host "Using generator: $generator"
+        if ($LASTEXITCODE -ne 0) {
+          exit $LASTEXITCODE
+        }
 
-      cmake -S . -B build-msvc `
-        -G $generator `
-        -A ARM64 `
-        -DBUILD_STATIC=True `
-        -DBUILD_CLI=True
+        cmake --build build-msvc `
+          --config Release `
+          --parallel `
+          -- `
+          /p:WindowsTargetPlatformVersion=10.0
 
-      if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
-      }
 
-      cmake --build build-msvc `
-        --config Release `
-        --parallel `
-        -- `
-        /p:WindowsTargetPlatformVersion=10.0
+    - name: Package MSVC build
+      run: |
+        Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
+        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-arm64.exe
 
-      exit $LASTEXITCODE
+        Compress-Archive `
+          -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb `
+          -DestinationPath build-msvc/libapfs-windows-arm64-msvc.zip
 
-  - name: Package MSVC build
-    run: |
-      Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
-      Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-arm64.exe
-
-      Compress-Archive `
-        -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb `
-        -DestinationPath build-msvc/libapfs-windows-arm64-msvc.zip
-
-  - name: Upload executable and library for windows-arm64
-    uses: actions/upload-artifact@v4
-    with:
-      name: apfs-windows-arm64
-      path: |
-        build-msvc/apfs-windows-arm64.exe
-        build-mingw/libapfs-windows-arm64-mingw.zip
-        build-msvc/libapfs-windows-arm64-msvc.zip
+    - name: Upload executable and library for windows-arm64
+      uses: actions/upload-artifact@v4
+      with:
+        name: apfs-windows-arm64
+        path: |
+          build-msvc/apfs-windows-arm64.exe
+          build-mingw/libapfs-windows-arm64-mingw.zip
+          build-msvc/libapfs-windows-arm64-msvc.zip
           
   build-macos-arm64:
     permissions: write-all
