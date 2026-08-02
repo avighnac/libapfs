@@ -6,6 +6,8 @@
 
 A (for now?) read-only Apple File System (APFS) implementation.
 
+**You can also mount drives to physical folders**: see [mounting](https://github.com/avighnac/libapfs#mounting-linux-and-windows)!
+
 ![watch me pls](WATCHME.gif)
 
 # Installation
