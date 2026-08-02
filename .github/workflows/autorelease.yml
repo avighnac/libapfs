@@ -249,7 +249,7 @@ jobs:
     - name: Package MSVC build
       run: |
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
-        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-x86-64.exe
+        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs.exe
 
         Compress-Archive `
           -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb `
@@ -260,7 +260,7 @@ jobs:
       with:
         name: apfs-windows-x86-64
         path: |
-          build-msvc/apfs-windows-x86-64.exe
+          build-msvc/apfs.exe
           build-mingw/libapfs-windows-x86-64-mingw.zip
           build-msvc/libapfs-windows-x86-64-msvc.zip
 
@@ -408,7 +408,7 @@ jobs:
           -G $generator `
           -A ARM64 `
           -DBUILD_STATIC=True `
-          -DBUILD_CLI=True
+          -DBUILD_CLI=False
 
         if ($LASTEXITCODE -ne 0) {
           exit $LASTEXITCODE
@@ -416,6 +416,7 @@ jobs:
 
         cmake --build build-msvc `
           --config Release `
+          --target libapfs `
           --parallel `
           -- `
           /p:WindowsTargetPlatformVersion=10.0
@@ -425,7 +426,6 @@ jobs:
     - name: Package MSVC build
       run: |
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
-        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-windows-arm64.exe
 
         Compress-Archive `
           -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb `
@@ -436,7 +436,6 @@ jobs:
       with:
         name: apfs-windows-arm64
         path: |
-          build-msvc/apfs-windows-arm64.exe
           build-mingw/libapfs-windows-arm64-mingw.zip
           build-msvc/libapfs-windows-arm64-msvc.zip
           
@@ -638,14 +637,14 @@ jobs:
         asset_name: libapfs-linux-arm64.zip
         asset_content_type: application/zip
 
-    - name: Upload executable for windows-x86-64
+    - name: Upload executable for Windows
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build-mingw/src/apfs-windows-x86-64.exe
-        asset_name: apfs-windows-x86-64.exe
+        asset_path: build-msvc/apfs.exe
+        asset_name: apfs.exe
         asset_content_type: application/x-executable
 
     - name: Upload MinGW library for windows-x86-64
@@ -667,16 +666,6 @@ jobs:
         asset_path: build-msvc/libapfs-windows-x86-64-msvc.zip
         asset_name: libapfs-windows-x86-64-msvc.zip
         asset_content_type: application/zip
-
-    - name: Upload executable for windows-arm64
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build-mingw/src/apfs-windows-arm64.exe
-        asset_name: apfs-windows-arm64.exe
-        asset_content_type: application/x-executable
 
     - name: Upload MinGW library for windows-arm64
       uses: actions/upload-release-asset@v1
