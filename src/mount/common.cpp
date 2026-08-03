@@ -5,18 +5,6 @@
 namespace apfs {
 namespace fuse {
 
-#if defined(__linux__)
-using apfs_timespec = timespec;
-typedef struct stat apfs_stat;
-typedef struct statvfs apfs_statvfs;
-using apfs_off_t = off_t;
-#else
-using apfs_timespec = fuse_timespec;
-using apfs_stat = fuse_stat;
-using apfs_statvfs = fuse_statvfs;
-using apfs_off_t = fuse_off_t;
-#endif
-
 static void fill_timespec(apfs_timespec *spec, uint64_t ns) {
   spec->tv_sec = ns / int(1e9);
   spec->tv_nsec = ns % int(1e9);

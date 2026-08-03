@@ -20,14 +20,26 @@ struct fuse_ctx {
   uint64_t fd;
 };
 
+#if defined(__linux__)
+using apfs_timespec = timespec;
+typedef struct stat apfs_stat;
+typedef struct statvfs apfs_statvfs;
+using apfs_off_t = off_t;
+#else
+using apfs_timespec = fuse_timespec;
+using apfs_stat = fuse_stat;
+using apfs_statvfs = fuse_statvfs;
+using apfs_off_t = fuse_off_t;
+#endif
+
 // Common to both
 int apfs_fuse_open(const char *path, struct fuse_file_info *fi);
 void apfs_fuse_destroy(void *private_data);
-int apfs_fuse_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi);
-int apfs_fuse_statfs(const char *path, struct statvfs *stbuf);
-int apfs_fuse_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
+int apfs_fuse_getattr(const char *path, apfs_stat *stbuf, struct fuse_file_info *fi);
+int apfs_fuse_statfs(const char *path, apfs_statvfs *stbuf);
+int apfs_fuse_read(const char *path, char *buf, size_t size, apfs_off_t offset, struct fuse_file_info *fi);
 int apfs_fuse_release(const char *path, struct fuse_file_info *fi);
-int apfs_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags);
+int apfs_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, apfs_off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags);
 
 #ifdef __linux__
 void *apfs_fuse_init(struct fuse_conn_info *conn, struct fuse_config *cfg);
