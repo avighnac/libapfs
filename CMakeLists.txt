@@ -11,6 +11,7 @@ set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/.cmake-deps" CACHE PATH "FetchCon
 
 add_subdirectory(src/lib)
 if (BUILD_CLI)
+  add_subdirectory(src/mount)
   add_subdirectory(src/cli)
 endif()
 add_subdirectory(tests)

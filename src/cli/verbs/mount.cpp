@@ -1,9 +1,9 @@
 #if defined(__linux__) || defined(_WIN32) || defined(_WIN64)
 
-#include "fuse_oper.hpp"
 #include <VolumeVerb.hpp>
 #include <fuse.h>
 #include <libapfs/apfs.hpp>
+#include <mount/mount.hpp>
 #include <optional>
 #include <sstream>
 #if defined(_WIN32) || defined(_WIN64)
@@ -49,18 +49,17 @@ struct MountVerb : VolumeVerb {
     }
     _argv.push_back(0);
 
-    
 #ifdef __linux__
     return fuse_main(_argv.size() - 1, _argv.data(), &apfs::fuse::apfs_fuse_oper, ctx);
 #else
-  // We need to load the winfsp dll
-  NTSTATUS status = FspLoad(nullptr);
-  if (!NT_SUCCESS(status)) {
-    fprintf(stderr, "FspLoad failed: 0x%08lx\n", (unsigned long)status);
-    return ERROR_DELAY_LOAD_FAILED;
-  }
+    // We need to load the winfsp dll
+    NTSTATUS status = FspLoad(nullptr);
+    if (!NT_SUCCESS(status)) {
+      fprintf(stderr, "FspLoad failed: 0x%08lx\n", (unsigned long)status);
+      return ERROR_DELAY_LOAD_FAILED;
+    }
 
-  return fuse_main(_argv.size() - 1, _argv.data(), &apfs::fuse::apfs_winfsp_oper, ctx);
+    return fuse_main(_argv.size() - 1, _argv.data(), &apfs::fuse::apfs_winfsp_oper, ctx);
 #endif
   }
 };
