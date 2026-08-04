@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+namespace apfs {
+
 // https://en.wikipedia.org/wiki/Computation_of_cyclic_redundancy_checks#CRC-32_example
 // https://stackoverflow.com/questions/26429360/crc32-vs-crc32c
 struct CRC32CHasher {
@@ -28,3 +30,5 @@ struct CRC32CHasher {
 };
 
 inline CRC32CHasher crc32c;
+
+} // namespace apfs

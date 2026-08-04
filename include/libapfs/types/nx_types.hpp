@@ -5,6 +5,8 @@
 #include "align_macros.hpp"
 #include "types.hpp"
 
+namespace apfs {
+
 // Indexes into a container superblockʼs array of counters.
 enum nx_counter_id_t {
   NX_CNTR_OBJ_CKSUM_SET = 0,
@@ -106,3 +108,5 @@ struct container_t {
     return block.nx_o.o_xid < r.block.nx_o.o_xid;
   }
 };
+
+} //namespace apfs

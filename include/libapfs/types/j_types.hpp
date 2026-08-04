@@ -8,6 +8,8 @@
 #include "typedefs.hpp"
 #include <cstdint>
 
+namespace apfs {
+
 struct apfs_modified_by_t {
   uint8_t id[APFS_MODIFIED_NAMELEN];
   uint64_t timestamp;
@@ -460,3 +462,5 @@ struct snap_meta_ext_obj_phys_t {
   obj_phys_t smeop_o;
   snap_meta_ext_t smeop_sme;
 };
+
+} // namespace apfs

@@ -8,6 +8,8 @@
 #include <system_error>
 #include "types/types.hpp"
 
+namespace apfs {
+
 // Forward declaration
 template <typename KeyType, typename Compare>
 class BTree;
@@ -75,3 +77,5 @@ checkpoint_map_phys_t BlockReader::read_object(uint64_t block_num) const;
 
 template <>
 btree_node_phys_t BlockReader::read_object(uint64_t block_num) const;
+
+} // namespace apfs

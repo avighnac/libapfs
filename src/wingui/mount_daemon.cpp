@@ -17,8 +17,6 @@
 #include <string>
 #include <vector>
 
-namespace {
-
 // `disk_path` may be a \\.\PhysicalDriveN path, which this (unelevated,
 // same as the GUI) process can't open itself -- if the GUI gave us its
 // elevated disk-helper's pipe name, go through it (see
@@ -30,12 +28,10 @@ apfs::disk open_disk(const std::string &disk_path, const std::string &disk_helpe
 
   FILE *fd = disk_helper_client::open_disk_via(utf8::to_wstring(disk_helper_pipe), disk_path);
   if (!fd) {
-    throw Error("failed to open " + disk_path + " via the elevated disk helper");
+    throw apfs::Error("failed to open " + disk_path + " via the elevated disk helper");
   }
   return apfs::disk(fd);
 }
-
-} // namespace
 
 int mount_daemon(int argc, char **argv) {
   if (argc < 6) {
@@ -95,7 +91,7 @@ int mount_daemon(int argc, char **argv) {
     }
 
     return fuse_main(_argv.size() - 1, _argv.data(), &apfs::fuse::apfs_winfsp_oper, ctx);
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     std::cerr << "failed to mount: " << e.what() << '\n';
     return 1;
   }

@@ -6,6 +6,8 @@
 #include <libapfs/checksum.hpp>
 #include <libapfs/util.hpp>
 
+namespace apfs {
+
 Partition::Partition(const BlockReader &_reader, uint64_t offset) : reader(_reader, true, offset) {
   superblock = reader.read_object<nx_superblock_t>(0);
   // Verify superblock magic
@@ -107,3 +109,5 @@ Partition::Partition(const BlockReader &_reader, uint64_t offset) : reader(_read
     volumes[i] = reader.read_object<apfs_superblock_t>(convert_v_oid(volume_oids[i]));
   }
 }
+
+} // namespace apfs

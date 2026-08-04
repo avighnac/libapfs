@@ -28,7 +28,7 @@ struct HelpVerb : Verb {
       return 0;
     }
     if (!options.contains("_default")) {
-      throw Error("missing verb");
+      throw apfs::Error("missing verb");
     }
     std::string verb = options["_default"];
     bool found = false;
@@ -36,7 +36,7 @@ struct HelpVerb : Verb {
       found |= Verb->name == verb;
     }
     if (!found) {
-      throw Error(verb + " is not a verb");
+      throw apfs::Error(verb + " is not a verb");
     }
 
     if (verb == "help") {

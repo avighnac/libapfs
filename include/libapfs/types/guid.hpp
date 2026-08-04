@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+namespace apfs {
+
 // From https://uefi.org/specs/UEFI/2.10/05_GUID_Partition_Table_Format.html
 ///
 /// MBR Partition Entry
@@ -69,3 +71,5 @@ struct EFI_PARTITION_ENTRY {
   uint64_t Attributes;
   char16_t PartitionName[36];
 };
+
+} // namespace apfs

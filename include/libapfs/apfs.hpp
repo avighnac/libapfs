@@ -156,9 +156,9 @@ public:
   disk(FILE *fd);
 
   /// @brief Used to load a partition
-  partition load_partition(const partition_info_t &part);
+  partition load_partition(const partition_info_t &part) const;
   /// @brief Search for a partition by GUID
-  partition get_partition(const std::string &guid);
+  partition get_partition(const std::string &guid) const;
 };
 
 } // namespace apfs

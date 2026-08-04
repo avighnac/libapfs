@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+namespace apfs {
+
 // Address type
 typedef int64_t paddr_t;
 
@@ -30,3 +32,5 @@ typedef SSIZE_T apfs_ssize_t;
 #else
 typedef ssize_t apfs_ssize_t;
 #endif
+
+} // namespace apfs

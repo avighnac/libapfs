@@ -9,6 +9,8 @@
 #include <limits>
 #include <vector>
 
+namespace apfs {
+
 // Mostly from https://developer.apple.com/support/downloads/Apple-File-System-Reference.pdf
 
 // A range of addresses
@@ -112,15 +114,6 @@ struct omap_key_t {
   auto operator<=>(const omap_key_t &) const = default;
   bool operator==(const omap_key_t &) const = default;
 };
-namespace std {
-template <>
-struct numeric_limits<omap_key_t> {
-  static constexpr bool is_specialized = true;
-  static constexpr omap_key_t max() noexcept {
-    return {numeric_limits<oid_t>::max(), numeric_limits<xid_t>::max()};
-  }
-};
-} // namespace std
 
 // A value in the object map.
 struct omap_val_t {
@@ -197,3 +190,15 @@ struct kvoff_t {
   uint16_t k;
   uint16_t v;
 };
+
+} // namespace apfs
+
+namespace std {
+template <>
+struct numeric_limits<apfs::omap_key_t> {
+  static constexpr bool is_specialized = true;
+  static constexpr apfs::omap_key_t max() noexcept {
+    return {numeric_limits<apfs::oid_t>::max(), numeric_limits<apfs::xid_t>::max()};
+  }
+};
+} // namespace std

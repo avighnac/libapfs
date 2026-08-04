@@ -4,6 +4,8 @@
 #include <string>
 #include "types/types.hpp"
 
+namespace apfs {
+
 bool compare_j_key_t(const bytes_t &_l, const bytes_t &_r);
 
 // (assuming trivially copyable: types with no `std::string` at the end)
@@ -74,3 +76,5 @@ bytes_t to_bytes(const T &x) {
 
 // Essentially, whether or not there's an `nx_superblock_t` at block 0
 bool is_apfs_partition(const std::string &filename);
+
+} // namespace apfs

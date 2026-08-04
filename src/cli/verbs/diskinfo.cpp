@@ -9,7 +9,7 @@ struct DiskinfoVerb : Verb {
 
   int handler(std::map<std::string, std::string> options) override {
     if (!options.contains("_default")) {
-      throw Error("missing filename");
+      throw apfs::Error("missing filename");
     }
     std::string filename = options["_default"];
     for (auto &part : apfs::disk(filename).partitions) {

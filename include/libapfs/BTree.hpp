@@ -10,6 +10,8 @@
 #include <type_traits>
 #include <vector>
 
+namespace apfs {
+
 template <typename Key, typename Val>
 struct _key_value_t {
   Key key;
@@ -269,3 +271,5 @@ key_value_t BTree<KeyType, Compare>::prev(const bytes_t &k, const Convert &conve
   addr = translate(cast<btn_index_node_val_t>(key_values[idx - 1].val).binv_child_oid, convert);
   return reader.read_btree<KeyType>(addr, _lt).prev(k, convert);
 }
+
+} // namespace apfs

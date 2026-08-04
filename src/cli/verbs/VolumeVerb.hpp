@@ -14,7 +14,7 @@ struct VolumeVerb : PartitionVerb {
   apfs::volume get_volume(apfs::partition &part, const std::map<std::string, std::string> &options) {
     if (!options.contains("volume")) {
       if (part.volumes.size() > 1) {
-        throw Error("missing \"volume\" parameter");
+        throw apfs::Error("missing \"volume\" parameter");
       }
       return part.volumes[0];
     }

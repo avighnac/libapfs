@@ -11,7 +11,7 @@ apfs::partition PartitionVerb::get_partition(const std::map<std::string, std::st
         return disk.load_partition(part);
       }
     }
-    throw Error("could not find partition \"" + options.at("part") + "\"");
+    throw apfs::Error("could not find partition \"" + options.at("part") + "\"");
   }
 
   // Filter only APFS partitions
@@ -21,7 +21,7 @@ apfs::partition PartitionVerb::get_partition(const std::map<std::string, std::st
     if (to_string(part.type_guid) == "APFS") {
       if (found) {
         // If there's more than one partition, we can't decide which one to use
-        throw Error("missing \"part\" parameter");
+        throw apfs::Error("missing \"part\" parameter");
       }
       found = true;
       partition = part;
@@ -29,7 +29,7 @@ apfs::partition PartitionVerb::get_partition(const std::map<std::string, std::st
   }
 
   if (!found) {
-    throw Error("no APFS partitions found on disk " + options.at("_default"));
+    throw apfs::Error("no APFS partitions found on disk " + options.at("_default"));
   }
 
   return disk.load_partition(partition);
@@ -37,7 +37,7 @@ apfs::partition PartitionVerb::get_partition(const std::map<std::string, std::st
 
 int PartitionVerb::handler(std::map<std::string, std::string> options) {
   if (!options.contains("_default")) {
-    throw Error("missing disk file");
+    throw apfs::Error("missing disk file");
   }
   apfs::partition part = get_partition(options);
   return partition_handler(part, options);

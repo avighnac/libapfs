@@ -8,6 +8,8 @@
 #include <sstream>
 #include <libapfs/types/types.hpp>
 
+namespace apfs {
+
 bytes_t b_to_bytes(const bytes_t &x) { return x; }
 
 // From https://jtsylve.blog/post/2022/12/15/APFS-FSTrees
@@ -68,3 +70,5 @@ bool is_apfs_partition(const std::string &filename) {
   nx_superblock_t superblock = *(nx_superblock_t *)raw.data();
   return superblock.nx_magic == NX_MAGIC;
 }
+
+} // namespace apfs

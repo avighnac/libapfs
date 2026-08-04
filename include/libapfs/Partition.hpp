@@ -3,6 +3,8 @@
 #include "BlockReader.hpp"
 #include "types/types.hpp"
 
+namespace apfs {
+
 // An interface to interact with an APFS container
 struct Partition {
   BlockReader reader;
@@ -12,3 +14,5 @@ struct Partition {
 
   Partition(const BlockReader &reader, uint64_t offset = 0);
 };
+
+} // namespace apfs

@@ -4,6 +4,8 @@
 #include <libapfs/util.hpp>
 #include <sstream>
 
+namespace apfs {
+
 GuidTable::GuidTable(const BlockReader &_reader) : reader(_reader, false) {
   reader.BLOCK_SIZE = 512;
 
@@ -74,3 +76,5 @@ Partition GuidTable::read_partition(const std::string &guid) {
   }
   throw Error("partition with guid " + guid + " does not exist");
 }
+
+} // namespace apfs

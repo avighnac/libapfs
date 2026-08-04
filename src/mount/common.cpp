@@ -32,7 +32,7 @@ int apfs_fuse_open(const char *path, struct fuse_file_info *fi) {
     uint64_t fd = ctx->fd++;
     ctx->open_files->emplace(fd, std::move(ent));
     fi->fh = fd;
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     return -ENOENT;
   }
 
@@ -55,7 +55,7 @@ int apfs_fuse_getattr(const char *path, apfs_stat *stbuf, struct fuse_file_info 
     auto inode = dirent.load_inode();
     fill_stat(stbuf, inode);
     res = 0;
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     res = -ENOENT;
   }
 
@@ -103,7 +103,7 @@ int apfs_fuse_read(const char *path, char *buf, size_t size, apfs_off_t offset, 
     const size_t len = std::min(size, contents.size());
     memcpy(buf, contents.data(), len);
     res = len;
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     res = -ENOENT;
   }
 
@@ -131,7 +131,7 @@ int apfs_fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, apfs_
         break;
       }
     }
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     return -ENOENT;
   }
 

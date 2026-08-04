@@ -85,7 +85,7 @@ model::Disk populate_disk(
     std::unique_ptr<apfs::partition> real_partition;
     try {
       real_partition = std::make_unique<apfs::partition>(real_disk->load_partition(part_info));
-    } catch (const Error &) {
+    } catch (const apfs::Error &) {
       continue; // this partition isn't APFS-formatted -- skip it, not the whole disk
     }
 
@@ -150,7 +150,7 @@ std::vector<model::Disk> list_disks() {
         if (!disk.partitions.empty()) {
           disks.push_back(std::move(disk));
         }
-      } catch (const Error &) {
+      } catch (const apfs::Error &) {
         // Not a valid partition table at all (or unreadable) -- skip. Most
         // physical drives on a Windows machine won't have any APFS
         // partitions, that's expected and not worth surfacing per-drive.
@@ -188,7 +188,7 @@ std::vector<model::Disk> list_disks() {
       if (!disk.partitions.empty()) {
         disks.push_back(std::move(disk));
       }
-    } catch (const Error &) {
+    } catch (const apfs::Error &) {
       // The file may have moved/been deleted since it was mounted -- can't
       // show it, but the mount helper itself is unaffected either way.
     }
@@ -206,7 +206,7 @@ model::Disk load_dmg_disk(const std::wstring &path) {
 
   try {
     return build_disk(utf8::to_system_codepage(path), utf8::from_wstring(path), display_name, model::DiskKind::Dmg, true);
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     MessageBoxA(nullptr, e.what(), "Failed to load disk image", MB_OK | MB_ICONERROR);
 
     model::Disk placeholder;

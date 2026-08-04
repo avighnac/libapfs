@@ -15,10 +15,10 @@ struct MountVerb : VolumeVerb {
 
   int handler(std::map<std::string, std::string> options) override {
     if (!options.contains("_default")) {
-      throw Error("missing disk name");
+      throw apfs::Error("missing disk name");
     }
     if (!options.contains("mount")) {
-      throw Error("missing \"mount\" parameter");
+      throw apfs::Error("missing \"mount\" parameter");
     }
 
     apfs::disk disk(options["_default"]);

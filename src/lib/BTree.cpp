@@ -1,6 +1,8 @@
 #include <libapfs/BTree.hpp>
 #include <libapfs/util.hpp>
 
+namespace apfs {
+
 // A j_key_t can take up multiple shapes
 // This function takes in a base address and an `nloc_t` (obtained from a `kvloc_t` that represents an offset)
 // Parses and returns the bytes of the j_key_t
@@ -112,3 +114,5 @@ bytes_t read_j_val_t::operator()(uint8_t *addr, uint16_t len, bytes_t key) {
   }
   }
 }
+
+} // namespace apfs

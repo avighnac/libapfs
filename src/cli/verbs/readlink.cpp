@@ -7,7 +7,7 @@ struct ReadLinkVerb : VolumeVerb {
 
   int volume_handler(apfs::volume &volume, std::map<std::string, std::string> options) override {
     if (!options.contains("path")) {
-      throw Error("missing \"path\" parameter");
+      throw apfs::Error("missing \"path\" parameter");
     }
 
     std::cout << volume.navigate_to(options["path"], false).read_symlink() << std::endl;

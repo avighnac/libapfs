@@ -20,11 +20,11 @@ static uint32_t drec_key_hash(const std::string &name) {
     char c = name[i];
     c = tolower(c);
     if (c > 0x7F) {
-      throw Error("name is not ASCII");
+      throw apfs::Error("name is not ASCII");
     }
-    data.append(to_bytes(uint32_t(c)));
+    data.append(apfs::to_bytes(uint32_t(c)));
   }
-  uint32_t hash_computed = crc32c.hash((const uint8_t *)data.data(), data.length());
+  uint32_t hash_computed = apfs::crc32c.hash((const uint8_t *)data.data(), data.length());
   hash_computed ^= 0xFFFFFFFFu;
   hash_computed &= (1 << 22) - 1;
   return hash_computed;
@@ -84,11 +84,11 @@ disk::disk(const std::string &filename) : disk(BlockReader(filename, false)) {}
 
 disk::disk(FILE *fd) : disk(BlockReader(fd)) {}
 
-partition disk::load_partition(const partition_info_t &part) {
+partition disk::load_partition(const partition_info_t &part) const {
   return partition(part, reader);
 }
 
-partition disk::get_partition(const std::string &guid) {
+partition disk::get_partition(const std::string &guid) const {
   for (auto &partition : partitions) {
     if (guid_to_string(partition.unique_guid) == guid) {
       return load_partition(partition);

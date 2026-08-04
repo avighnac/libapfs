@@ -24,7 +24,7 @@ int apfs_fuse_access(const char *path, int mask) {
   try {
     auto dirent = ctx->vol->navigate_to(std::string(path));
     res = 0;
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     res = -ENOENT; // file does not exist
   }
 

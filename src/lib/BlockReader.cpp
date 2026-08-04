@@ -9,6 +9,8 @@
 #define apfs_fseek fseeko
 #endif
 
+namespace apfs {
+
 // Read a block and return its raw bytes
 bytes_t BlockReader::read_block(uint64_t block_num) const {
   int res = apfs_fseek(*f, block_num * BLOCK_SIZE + offset, SEEK_SET);
@@ -33,7 +35,7 @@ void BlockReader::set_apfs_block_size() {
   try {
     BLOCK_SIZE = NX_DEFAULT_BLOCK_SIZE;
     BLOCK_SIZE = read_object<nx_superblock_t>(0).nx_block_size;
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     throw Error("file is not the start of an APFS container (offset=" + std::to_string(offset) + "), with error " + e.what());
   }
 }
@@ -126,3 +128,5 @@ std::vector<x_field> BlockReader::parse_xfields(bytes_t &data) const {
 
   return fields;
 }
+
+} // namespace apfs

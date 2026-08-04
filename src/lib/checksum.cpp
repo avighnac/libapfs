@@ -5,6 +5,8 @@
 #include <cstring>
 #include <stdexcept>
 
+namespace apfs {
+
 // Calculates and returns the Fletcher-64 of a buffer of data
 uint64_t calculate_fletcher64_checksum(const uint8_t *buffer, size_t size, uint64_t initial_value) {
   if (buffer == NULL) {
@@ -37,3 +39,5 @@ bool verify_object_checksum(void *object, size_t block_size) {
   std::memcpy(&checksum, object, 8);
   return checksum == calculate_fletcher64_checksum((const uint8_t *)object + 8, block_size - 8);
 }
+
+} // namespace apfs

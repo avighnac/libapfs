@@ -25,15 +25,15 @@ std::map<std::string, std::string> parse_options(const std::vector<std::string> 
   for (int i = 0; i < int(argv.size()); ++i) {
     if (!argv[i].starts_with("--")) {
       if (map.contains("_default")) {
-        throw Error("too many arguments passed");
+        throw apfs::Error("too many arguments passed");
       }
       map["_default"] = argv[i];
     } else {
       if (map.contains(argv[i].substr(2))) {
-        throw Error("option " + argv[i] + " specified more than once");
+        throw apfs::Error("option " + argv[i] + " specified more than once");
       }
       if (i == int(argv.size()) - 1 || argv[i + 1].starts_with("--")) {
-        throw Error("missing option: " + argv[i]);
+        throw apfs::Error("missing option: " + argv[i]);
       }
       map[argv[i].substr(2)] = argv[i + 1];
       i++;
@@ -56,7 +56,7 @@ int main(int argc, char **_argv) {
   }
   try {
     return _main(argc, argv);
-  } catch (const Error &e) {
+  } catch (const apfs::Error &e) {
     print_error(e.what());
     return 1;
   }
@@ -84,5 +84,5 @@ int _main(int argc, const std::vector<std::string> &_argv) {
     }
   }
 
-  throw Error("no matching verb");
+  throw apfs::Error("no matching verb");
 }

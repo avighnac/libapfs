@@ -4,6 +4,8 @@
 #include <libapfs/BlockReader.hpp>
 #include <libapfs/types/types.hpp>
 
+namespace apfs {
+
 struct GuidTable {
   BlockReader reader;
   std::vector<EFI_PARTITION_ENTRY> partitions;
@@ -11,3 +13,5 @@ struct GuidTable {
   GuidTable(const BlockReader &reader);
   Partition read_partition(const std::string &guid);
 };
+
+} // namespace apfs

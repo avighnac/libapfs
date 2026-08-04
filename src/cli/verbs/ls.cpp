@@ -8,7 +8,7 @@ struct LsVerb : VolumeVerb {
 
   int volume_handler(apfs::volume &volume, std::map<std::string, std::string> options) override {
     if (!options.contains("path")) {
-      throw Error("missing \"path\" parameter");
+      throw apfs::Error("missing \"path\" parameter");
     }
 
     std::vector<apfs::directory_entry> dirents = volume.navigate_to(options["path"]).list_children();

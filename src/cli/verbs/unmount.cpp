@@ -10,12 +10,12 @@ struct UnmountVerb : Verb {
 
   int handler(std::map<std::string, std::string> options) override {
     if (!options.contains("mount")) {
-      throw Error("missing \"mount\" parameter");
+      throw apfs::Error("missing \"mount\" parameter");
     }
 
     const std::string &mount = options.at("mount");
     if (umount2(mount.c_str(), MNT_DETACH | UMOUNT_NOFOLLOW) == -1) {
-      throw Error("failed to unmount \"" + mount + "\": " + std::strerror(errno));
+      throw apfs::Error("failed to unmount \"" + mount + "\": " + std::strerror(errno));
     }
 
     return 0;
