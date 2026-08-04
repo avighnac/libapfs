@@ -96,10 +96,11 @@ void partition::_init() {
   num_blocks = part.superblock.nx_block_count;
   block_size = part.superblock.nx_block_size;
 
+  bytes_used = 0;
   for (size_t i = 0; i < part.volumes.size(); ++i) {
     const auto &spblk = part.volumes[i];
     volumes.push_back({spblk, reader});
-    bytes_used = volumes.back().size;
+    bytes_used += volumes.back().size;
   }
 }
 
