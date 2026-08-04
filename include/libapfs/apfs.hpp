@@ -124,10 +124,14 @@ public:
 class disk {
   BlockReader reader;
 
+  disk(const BlockReader &reader);
+
 public:
   std::vector<partition_info_t> partitions;
 
   disk(const std::string &filename);
+  // Ownership is transferred to this class
+  disk(FILE *fd);
 
   /// @brief Used to load a partition
   partition load_partition(const partition_info_t &part);

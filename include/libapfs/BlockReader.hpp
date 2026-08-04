@@ -63,6 +63,10 @@ public:
   // an APFS partition directly (the other option is a disk, with an MBR)
   BlockReader(std::string filename, bool apfs = true, uint64_t offset = 0);
   BlockReader(const BlockReader &reader, bool apfs, uint64_t offset = 0);
+  // This constructor gains ownership of the FILE passed. `apfs` is implicitly
+  // false and offset is 0, because this is meant for when the disk file can't 
+  // be opened by us, as a non-privileged process. Only an issue on Windows
+  BlockReader(FILE *fd);
   ~BlockReader();
 };
 

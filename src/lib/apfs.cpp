@@ -61,7 +61,7 @@ static std::string guid_to_string(const apfs::guid_t &guid) {
 
 namespace apfs {
 
-disk::disk(const std::string &filename) : reader(filename, false) {
+disk::disk(const BlockReader &reader_) : reader(reader_) {
   GuidTable gpt(reader);
   for (EFI_PARTITION_ENTRY &part : gpt.partitions) {
     std::string partition_name;
@@ -77,6 +77,14 @@ disk::disk(const std::string &filename) : reader(filename, false) {
     p.addr = part.StartingLBA * gpt.reader.BLOCK_SIZE;
     partitions.push_back(p);
   }
+}
+
+disk::disk(const std::string &filename) : reader(filename, false) {
+  disk::disk(reader);
+}
+
+disk::disk(FILE *fd) : reader(fd) {
+  disk::disk(reader);
 }
 
 partition disk::load_partition(const partition_info_t &part) {
