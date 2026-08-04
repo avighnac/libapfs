@@ -95,7 +95,7 @@ Partition::Partition(const BlockReader &_reader, uint64_t offset) : reader(_read
   // Get the list of volumes
   std::vector<oid_t> volume_oids;
   for (int i = 0; i < NX_MAX_FILE_SYSTEMS; ++i) {
-    oid_t oid = superblock.nx_fs_oid[i];
+    oid_t oid = container.block.nx_fs_oid[i];
     if (oid) {
       volume_oids.push_back(oid);
     }
