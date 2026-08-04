@@ -76,7 +76,7 @@ int apfs_fuse_statfs(const char *, apfs_statvfs *stbuf) {
   stbuf->f_bavail = stbuf->f_bfree;
 
   // Just xor the two halves to collapse 128 bits => 64 bits
-  stbuf->f_fsid = (*(uint64_t *)ctx->part->unique_guid.data()) ^ ((*(uint64_t *)ctx->part->unique_guid.data() + 8));
+  stbuf->f_fsid = (*(uint64_t *)ctx->part->unique_guid.data()) ^ ((*(uint64_t *)(ctx->part->unique_guid.data() + 8)));
 #ifndef ST_RDONLY
 #define ST_RDONLY 1
 #endif
