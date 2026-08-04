@@ -6,6 +6,7 @@
 #include <libapfs/Partition.hpp>
 #include <libapfs/apfs.hpp>
 #include <sstream>
+#include <set>
 
 static std::array<uint8_t, 16> _uuid_to_array(unsigned char uuid[]) {
   std::array<uint8_t, 16> ret;
@@ -137,7 +138,7 @@ volume::volume(const apfs_superblock_t &spblk, const BlockReader &reader)
 
 paddr_t volume::identity(const oid_t &oid) { return oid; }
 // Virtual object => physical address by reading the object_map BTree
-paddr_t volume::get_paddr(const oid_t &oid) {
+paddr_t volume::get_paddr(const oid_t &oid) const {
   omap_key_t key = {oid, spblk.apfs_o.o_xid};
   auto kv = object_map.upper_bound(to_bytes(key), identity);
   kv = object_map.prev(kv.key, identity);
@@ -147,59 +148,22 @@ paddr_t volume::get_paddr(const oid_t &oid) {
   return cast<omap_val_t>(kv.val).ov_paddr;
 }
 
-directory_entry volume::navigate_to(const std::string &path) {
-  std::vector<std::string> dirs;
-  std::string dir;
-  for (const char &c : path) {
-    if (c == '/') {
-      if (!dir.empty()) {
-        if (dir == "..") {
-          if (!dirs.empty()) {
-            dirs.pop_back();
-          }
-        } else if (dir != ".") {
-          dirs.push_back(dir);
-        }
-      }
-      dir.clear();
-      continue;
-    }
-    dir.push_back(c);
-  }
-  if (!dir.empty()) {
-    dirs.push_back(dir);
-  }
-
-  // This works based on the assumption that:
-  // the object id of a `drec_hashed_key_t` is equal to the inode's object id of the parent directory
+directory_entry volume::root() const {
   j_drec_val_t drec_val;
   drec_val.file_id = ROOT_DIR_INO_NUM;
   drec_val.flags = DT_DIR;
 
-  for (size_t i = 0; i < dirs.size(); i++) {
-    j_drec_hashed_key_t key;
-    key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << OBJ_TYPE_SHIFT) | (drec_val.file_id);
-    key.name = dirs[i];
-    key.name_len_and_hash = (drec_key_hash(key.name) << J_DREC_HASH_SHIFT) | (key.name.length() + 1);
-
-    auto kv = filesystem.lower_bound(to_bytes(key), [&](const oid_t &oid) { return get_paddr(oid); });
-    if (kv.key != to_bytes(key)) {
-      throw Error("file/directory does not exist");
-    }
-
-    drec_val = cast<j_drec_val_t>(kv.val);
-    if (i != dirs.size() - 1 && !(drec_val.flags & DT_DIR)) {
-      throw Error("not a directory");
-    }
-  }
-
-  return {this, (dirs.empty() ? "/" : dirs.back()), drec_val, reader};
+  return {this, std::string("/"), drec_val, reader};
 }
 
-directory_entry::directory_entry(volume *vol, std::string name, const j_drec_val_t raw_drec, const BlockReader &reader)
+directory_entry volume::navigate_to(const std::string &path, bool follow_last) const {
+  return root().resolve(path, follow_last);
+}
+
+directory_entry::directory_entry(const volume *vol, std::string name, const j_drec_val_t raw_drec, const BlockReader &reader)
     : vol(vol), name(name), inode_num(raw_drec.file_id), type(directory_entry_type(raw_drec.flags & DREC_TYPE_MASK)), reader(reader) {}
 
-std::vector<directory_entry> directory_entry::list_children() {
+std::vector<directory_entry> directory_entry::list_children() const {
   if (type != DIRENT_DIR) {
     throw Error("\"" + name + "\" is not a directory");
   }
@@ -231,6 +195,90 @@ inode_t::inode_t(uint64_t inode_num, const _j_inode_val_t &raw, std::vector<x_fi
   }
 }
 
+directory_entry directory_entry::resolve(const std::string &path, bool follow_last) const {
+  // If path is relative to the root and we're not the root, get path relative to root
+  if (!path.empty() && path[0] == '/' && inode_num != ROOT_DIR_INO_NUM) {
+    return vol->navigate_to(path);
+  }
+
+  std::vector<std::string> dirs;
+  std::string dir;
+  for (const char &c : path) {
+    if (c == '/') {
+      if (!dir.empty()) {
+        if (dir == "..") {
+          if (!dirs.empty() && dirs.back() != "..") {
+            dirs.pop_back();
+          } else {
+            dirs.push_back("..");
+          }
+        } else if (dir != ".") {
+          dirs.push_back(dir);
+        }
+      }
+      dir.clear();
+      continue;
+    }
+    dir.push_back(c);
+  }
+  if (!dir.empty()) {
+    dirs.push_back(dir);
+  }
+
+  // This works based on the assumption that:
+  // the object id of a `drec_hashed_key_t` is equal to the inode's object id of the parent directory
+  j_drec_val_t drec_val;
+  drec_val.file_id = inode_num;
+  drec_val.flags = type;
+
+  for (size_t i = 0; i < dirs.size(); i++) {
+    if (dirs[i] == "..") { // parent dir
+      if (drec_val.file_id == ROOT_DIR_INO_NUM) { // skip ../ from root
+        continue;
+      }
+      j_inode_key_t key;
+      key.obj_id_and_type = (uint64_t(APFS_TYPE_INODE) << OBJ_TYPE_SHIFT) | drec_val.file_id;
+      auto kv = vol->filesystem.lower_bound(to_bytes(key), [&](const oid_t &oid) { return vol->get_paddr(oid); });
+      if (kv.key != to_bytes(key)) {
+        throw Error("directory does not exist");
+      }
+      j_inode_val_t val = cast<j_inode_val_t>(kv.val);
+      drec_val.file_id = val.parent_id;
+      drec_val.flags = DT_DIR; // has to be a directory
+      continue;
+    }
+
+    j_drec_hashed_key_t key;
+    key.obj_id_and_type = (uint64_t(APFS_TYPE_DIR_REC) << OBJ_TYPE_SHIFT) | (drec_val.file_id);
+    key.name = dirs[i];
+    key.name_len_and_hash = (drec_key_hash(key.name) << J_DREC_HASH_SHIFT) | (key.name.length() + 1);
+    auto kv = vol->filesystem.lower_bound(to_bytes(key), [&](const oid_t &oid) { return vol->get_paddr(oid); });
+    if (kv.key != to_bytes(key)) {
+      throw Error("file/directory does not exist");
+    }
+    drec_val = cast<j_drec_val_t>(kv.val);
+
+    if (follow_last || i != dirs.size() - 1) {
+      // Resolve symlink so our navigation actually works
+      if (drec_val.flags & DT_LNK) {
+        directory_entry entry(vol, key.name, drec_val, reader);
+        entry = entry.follow_symlink();
+        
+        drec_val.file_id = entry.inode_num;
+        drec_val.flags = entry.type;
+      }
+    }
+
+    if (i != dirs.size() - 1) {
+      if (!(drec_val.flags & DT_DIR)) {
+        throw Error("not a directory");
+      }
+    }
+  }
+
+  return {vol, (dirs.empty() ? name : dirs.back()), drec_val, reader};
+}
+
 inode_t directory_entry::load_inode() const {
   j_inode_key_t inode_key;
   inode_key.obj_id_and_type = (uint64_t(APFS_TYPE_INODE) << OBJ_TYPE_SHIFT) | inode_num;
@@ -241,8 +289,8 @@ inode_t directory_entry::load_inode() const {
   return {inode_num, inode_val, xfields};
 }
 
-void directory_entry::read_file(std::ostream &os, off_t offset, apfs_ssize_t size) {
-  if (type != DIRENT_FILE) {
+void directory_entry::read_file(std::ostream &os, off_t offset, apfs_ssize_t size) const {
+  if (type != DIRENT_FILE && type != DIRENT_LINK) {
     throw Error("\"" + name + "\" is not a file");
   }
   if (size < -1) {
@@ -250,7 +298,10 @@ void directory_entry::read_file(std::ostream &os, off_t offset, apfs_ssize_t siz
   }
 
   inode_t inode_val = load_inode();
-  if (offset < 0 || offset >= inode_val.size) {
+  if (offset == inode_val.size) { // EOF
+    return;
+  }
+  if (offset < 0 || offset > inode_val.size) {
     throw Error("invalid offset");
   }
 
@@ -308,6 +359,38 @@ void directory_entry::read_file(std::ostream &os, off_t offset, apfs_ssize_t siz
 
     kv = vol->filesystem.upper_bound(kv.key, [&](const oid_t &oid) { return vol->get_paddr(oid); });
   }
+}
+
+std::string directory_entry::read_symlink() const {
+  if (type != DIRENT_LINK) {
+    throw Error("not a symbolic link");
+  }
+
+  j_xattr_key_t key;
+  key.obj_id_and_type = inode_num | (uint64_t(APFS_TYPE_XATTR) << OBJ_TYPE_SHIFT);
+  key.name_len = sizeof(SYMLINK_EA_NAME); // strlen(SYMLINK_EA_NAME) + 1 (for null terminator)
+  key.name = SYMLINK_EA_NAME;
+
+  auto kv = vol->filesystem.lower_bound(to_bytes(key), [&](const oid_t &oid) { return vol->get_paddr(oid); });
+  assert(kv.key == to_bytes(key));
+
+  std::string path = cast<j_xattr_val_t>(kv.val).xdata;
+  path.pop_back(); // remove null byte
+
+  return path;
+}
+
+directory_entry directory_entry::follow_symlink(int level) const {
+  std::set<uint64_t> seen;
+  auto resolved = *this;
+  while (resolved.type == DIRENT_LINK && (level == -1 || --level >= 0)) {
+    if (seen.contains(resolved.inode_num) && level == -1) {
+      throw Error("symbolic links create a cycle");
+    }
+    seen.insert(resolved.inode_num);
+    resolved = resolved.resolve("../" + resolved.read_symlink());
+  }
+  return resolved;
 }
 
 } // namespace apfs

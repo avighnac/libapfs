@@ -48,7 +48,7 @@ class BTree {
   // Looks at how addresses are stored in the b-tree and decides whether or not
   // to call Translate
   template <typename Translate>
-  paddr_t translate(oid_t oid, const Translate &f) {
+  paddr_t translate(oid_t oid, const Translate &f) const {
     if (node.btn_flags & BTREE_PHYSICAL) {
       return oid;
     }
@@ -72,17 +72,17 @@ public:
   // Finds the first key-value pair greater than or equal to `k`.
   // `Convert` should convert virtual addresses (where applicable) to physical addresses.
   template <typename Convert>
-  key_value_t lower_bound(const bytes_t &k, const Convert &convert);
+  key_value_t lower_bound(const bytes_t &k, const Convert &convert) const;
 
   // Finds the first key-value pair greater than `k`.
   // `Convert` should convert virtual addresses (where applicable) to physical addresses.
   template <typename Convert>
-  key_value_t upper_bound(const bytes_t &k, const Convert &convert);
+  key_value_t upper_bound(const bytes_t &k, const Convert &convert) const;
 
   // Finds the key-value pair that comes before `k` in the in-order traversal of the tree.
   // `Convert` should convert virtual addresses (where applicable) to physical addresses.
   template <typename Convert>
-  key_value_t prev(const bytes_t &k, const Convert &convert);
+  key_value_t prev(const bytes_t &k, const Convert &convert) const;
 };
 
 template <typename KeyType, typename Compare>
@@ -189,7 +189,7 @@ BTree<KeyType, Compare>::BTree(const btree_node_phys_t &node, const BlockReader 
 
 template <typename KeyType, typename Compare>
 template <typename Convert>
-key_value_t BTree<KeyType, Compare>::lower_bound(const bytes_t &k, const Convert &convert) {
+key_value_t BTree<KeyType, Compare>::lower_bound(const bytes_t &k, const Convert &convert) const {
   if (lte(k, key_values[0].key)) {
     return key_values[0];
   }
@@ -217,7 +217,7 @@ key_value_t BTree<KeyType, Compare>::lower_bound(const bytes_t &k, const Convert
 
 template <typename KeyType, typename Compare>
 template <typename Convert>
-key_value_t BTree<KeyType, Compare>::upper_bound(const bytes_t &k, const Convert &convert) {
+key_value_t BTree<KeyType, Compare>::upper_bound(const bytes_t &k, const Convert &convert) const {
   if (lt(k, key_values[0].key)) {
     return key_values[0];
   }
@@ -243,7 +243,7 @@ key_value_t BTree<KeyType, Compare>::upper_bound(const bytes_t &k, const Convert
 // Find the last key-value pair less than k in the whole tree
 template <typename KeyType, typename Compare>
 template <typename Convert>
-key_value_t BTree<KeyType, Compare>::prev(const bytes_t &k, const Convert &convert) {
+key_value_t BTree<KeyType, Compare>::prev(const bytes_t &k, const Convert &convert) const {
   // key_values[0].key is the absolute minimum key that will occur in the tree
   if (lt(k, key_values[0].key)) {
     return SENTINEL;
