@@ -10,9 +10,13 @@ target_compile_definitions(apfs-gui PRIVATE UNICODE _UNICODE)
 
 target_include_directories(apfs-gui PRIVATE "../../include/" "../")
 
-# Admin elevation
+# The GUI itself runs unelevated (asInvoker, the default -- set explicitly
+# here for clarity). It elevates a separate disk-helper process on demand
+# for the one thing that actually needs admin rights on Windows: opening
+# \\.\PhysicalDriveN for raw reads. See disk_helper_client.hpp /
+# disk_helper_server.hpp.
 if (MSVC)
-  target_link_options(apfs-gui PRIVATE "/MANIFESTUAC:level='requireAdministrator' uiAccess='false'")
+  target_link_options(apfs-gui PRIVATE "/MANIFESTUAC:level='asInvoker' uiAccess='false'")
 endif()
 
 target_link_libraries(apfs-gui PRIVATE

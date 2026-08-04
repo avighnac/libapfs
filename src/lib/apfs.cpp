@@ -79,13 +79,9 @@ disk::disk(const BlockReader &reader_) : reader(reader_) {
   }
 }
 
-disk::disk(const std::string &filename) : reader(filename, false) {
-  disk::disk(reader);
-}
+disk::disk(const std::string &filename) : disk(BlockReader(filename, false)) {}
 
-disk::disk(FILE *fd) : reader(fd) {
-  disk::disk(reader);
-}
+disk::disk(FILE *fd) : disk(BlockReader(fd)) {}
 
 partition disk::load_partition(const partition_info_t &part) {
   return partition(part, reader);

@@ -56,7 +56,7 @@ BlockReader::BlockReader(const BlockReader &reader, bool apfs, uint64_t offset)
   }
 }
 
-BlockReader::BlockReader(FILE *fd) {
+BlockReader::BlockReader(FILE *fd) : offset(0) {
   f = std::make_shared<FILE *>(fd);
   if (*f == NULL) {
     throw Error("invalid file descriptor passed");

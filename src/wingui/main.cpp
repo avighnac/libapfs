@@ -10,6 +10,8 @@
 
 #include "AppWindow.hpp"
 #include "Utf8.hpp"
+#include "disk_helper_client.hpp"
+#include "disk_helper_server.hpp"
 #include "mount_daemon.hpp"
 #include <dbt.h>
 #include <dwmapi.h>
@@ -105,9 +107,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 }
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
-  // This one executable serves double duty: with no arguments it's the GUI,
-  // and with arguments it's a mount-helper instance the GUI launched against
-  // itself (see MountRegistry.cpp / mount_helper/MountHelperMain.hpp).
+  // This one executable serves three roles: with no arguments it's the GUI;
+  // with a "--disk-helper" first argument it's the elevated disk-helper
+  // instance the GUI launches against itself (see disk_helper_server.hpp);
+  // with any other arguments it's a mount-helper instance, also launched
+  // against itself (see mount_daemon.hpp).
   //
   // The CRT's __argc/__argv globals are NOT a reliable source of argv here:
   // for a WinMain/wWinMain (GUI-subsystem) entry point the CRT startup only
@@ -133,11 +137,23 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     }
     argv_ptrs.push_back(nullptr);
 
+    if (narrow_args[1] == "--disk-helper") {
+      return disk_helper_server::run(argc, argv_ptrs.data());
+    }
+
     return mount_daemon(argc, argv_ptrs.data());
   }
   if (wargv) {
     LocalFree(wargv);
   }
+
+  // Launched with no arguments: we're the GUI. Elevate and launch the
+  // disk-helper process (a UAC prompt) right away, tied to this process's
+  // lifetime (see disk_helper_server.cpp) -- it's what lets the rest of
+  // this process, and the window it's about to create, run unelevated.
+  // AppWindow's constructor lists physical disks synchronously, so this
+  // has to happen before that.
+  disk_helper_client::start();
 
   SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
   const wchar_t *class_name = L"LibapfsGuiWindowClass";
@@ -177,6 +193,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     TranslateMessage(&msg);
     DispatchMessageW(&msg);
   }
+
+  disk_helper_client::stop();
 
   return msg.wParam;
 }

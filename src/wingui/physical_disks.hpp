@@ -7,8 +7,11 @@
 // each one with apfs::disk to find APFS-formatted ones.
 //
 // Opening \\.\PhysicalDriveN for even read-only raw access is an
-// Administrator-only operation on Windows, regardless of file ACLs -- see
-// app.manifest (requireAdministrator) for the other half of this.
+// Administrator-only operation on Windows, regardless of file ACLs -- so
+// this (like actually opening a drive) only ever runs inside the elevated
+// disk-helper process (see disk_helper_server.cpp). The GUI itself runs
+// unelevated and talks to that process instead -- see
+// disk_helper_client.hpp.
 namespace physical_disks {
 
 struct DriveInfo {

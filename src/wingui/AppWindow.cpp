@@ -686,10 +686,38 @@ void AppWindow::add_disk_from_dmg() {
 void AppWindow::refresh_physical_disks() {
   auto fresh_physical = callbacks::list_disks();
 
+  // list_disks() also rediscovers .dmg disks still served by a mount helper
+  // left over from a previous GUI session -- useful for the very first scan
+  // (the constructor's plain assignment, where disks_ starts empty), but
+  // redundant here: disks_ already carries every .dmg disk it knows about
+  // forward below, unconditionally. Keeping list_disks()'s copies too would
+  // duplicate any .dmg whose mount helper is now running (e.g. because a
+  // volume was just mounted, which is what triggers this rescan in the
+  // first place) -- drop everything but the actual physical drives.
+  fresh_physical.erase(
+    std::remove_if(
+      fresh_physical.begin(), fresh_physical.end(),
+      [](const model::Disk &d) { return d.kind != model::DiskKind::Physical; }
+    ),
+    fresh_physical.end()
+  );
+
+  // Captured so the selection can be restored below -- not just which disk,
+  // but which partition/volume on it, since this whole rescan is triggered
+  // by WM_DEVICECHANGE, which mounting/unmounting a volume itself fires (a
+  // drive letter appearing/disappearing is a device change). Without this,
+  // mounting a volume would immediately un-select it.
   std::string selected_source_path;
+  int selected_disk_partition_index = -1;
+  int selected_volume_index = -1;
   const bool had_selection = selected_disk_ >= 0 && selected_disk_ < int(disks_.size());
   if (had_selection) {
-    selected_source_path = disks_[selected_disk_].source_path;
+    auto &sel_disk = disks_[selected_disk_];
+    selected_source_path = sel_disk.source_path;
+    if (selected_partition_ >= 0 && selected_partition_ < int(sel_disk.partitions.size())) {
+      selected_disk_partition_index = sel_disk.partitions[selected_partition_].disk_partition_index;
+      selected_volume_index = selected_volume_;
+    }
   }
 
   // Carry over expand state for physical disks that are still connected,
@@ -739,10 +767,23 @@ void AppWindow::refresh_physical_disks() {
   selected_volume_ = -1;
   if (had_selection && !selected_source_path.empty()) {
     for (size_t i = 0; i < disks_.size(); ++i) {
-      if (disks_[i].source_path == selected_source_path) {
-        selected_disk_ = int(i);
+      if (disks_[i].source_path != selected_source_path) {
+        continue;
+      }
+      selected_disk_ = int(i);
+
+      auto &partitions = disks_[i].partitions;
+      for (size_t p = 0; p < partitions.size(); ++p) {
+        if (partitions[p].disk_partition_index != selected_disk_partition_index) {
+          continue;
+        }
+        selected_partition_ = int(p);
+        if (selected_volume_index >= 0 && selected_volume_index < int(partitions[p].volumes.size())) {
+          selected_volume_ = selected_volume_index;
+        }
         break;
       }
+      break;
     }
   }
 

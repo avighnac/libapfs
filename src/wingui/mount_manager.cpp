@@ -203,7 +203,10 @@ std::optional<std::wstring> pick_free_drive_letter() {
   return std::nullopt;
 }
 
-std::optional<MountInfo> launch_mount(const std::wstring &disk_path, int partition_index, int volume_index, std::wstring *error_detail) {
+std::optional<MountInfo> launch_mount(
+  const std::wstring &disk_path, int partition_index, int volume_index, const std::wstring &disk_helper_pipe,
+  std::wstring *error_detail
+) {
   auto set_error = [&](std::wstring msg) {
     if (error_detail) {
       *error_detail = std::move(msg);
@@ -231,6 +234,7 @@ std::optional<MountInfo> launch_mount(const std::wstring &disk_path, int partiti
   append_quoted_arg(command_line, std::to_wstring(volume_index));
   append_quoted_arg(command_line, *drive_letter);
   append_quoted_arg(command_line, checksum);
+  append_quoted_arg(command_line, disk_helper_pipe);
 
   // Capture the helper's stdout/stderr so a startup failure (bad path,
   // FspLoad failure, an out-of-range index, ...) can be reported verbatim

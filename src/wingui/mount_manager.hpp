@@ -32,8 +32,7 @@ struct MountInfo {
 std::vector<MountInfo> enumerate_running_mounts();
 
 // Picks an unused drive letter (Z: downward, stopping above C:), or
-// nullopt if none are free based on this (elevated) process's own
-// GetLogicalDrives() 
+// nullopt if none are free based on this process's own GetLogicalDrives()
 std::optional<std::wstring> pick_free_drive_letter();
 
 // Launches a detached apfs_mount_helper process for the given
@@ -44,7 +43,16 @@ std::optional<std::wstring> pick_free_drive_letter();
 // no free drive letter, WinFsp not installed, etc.) -- when non-null,
 // `error_detail` is filled in with specifics either way (helpful for
 // diagnosing which of those it was).
-std::optional<MountInfo> launch_mount(const std::wstring &disk_path, int partition_index, int volume_index, std::wstring *error_detail = nullptr);
+//
+// `disk_helper_pipe` is the running elevated disk-helper's pipe name (see
+// disk_helper_client::pipe_name()), needed so the helper process can open a
+// \\.\PhysicalDriveN disk_path itself -- it runs unelevated, same as the
+// GUI. Pass an empty string for a disk_path the helper can open directly
+// without elevation (a .dmg file).
+std::optional<MountInfo> launch_mount(
+  const std::wstring &disk_path, int partition_index, int volume_index, const std::wstring &disk_helper_pipe,
+  std::wstring *error_detail = nullptr
+);
 
 // Terminates the given helper process.
 // WinFsp cleans up the mount when its hosting process dies,

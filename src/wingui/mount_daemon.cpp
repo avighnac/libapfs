@@ -1,18 +1,46 @@
 #include "mount_daemon.hpp"
 
+// libapfs/apfs.hpp (via typedefs.hpp's uuid_t) must be parsed before
+// anything pulls in <windows.h> (via Utf8.hpp here) -- one of Windows' own
+// RPC headers #defines uuid_t to UUID, which mangles that typedef into
+// nonsense if it hasn't been seen yet.
 #include <fuse.h>
 #include <libapfs/apfs.hpp>
 #include <mount/mount.hpp>
 #include <winfsp/winfsp.h>
+
+#include "Utf8.hpp"
+#include "disk_helper_client.hpp"
 
 #include <cstdlib>
 #include <iostream>
 #include <string>
 #include <vector>
 
+namespace {
+
+// `disk_path` may be a \\.\PhysicalDriveN path, which this (unelevated,
+// same as the GUI) process can't open itself -- if the GUI gave us its
+// elevated disk-helper's pipe name, go through it (see
+// disk_helper_client.hpp). Otherwise (a plain .dmg file) open it directly.
+apfs::disk open_disk(const std::string &disk_path, const std::string &disk_helper_pipe) {
+  if (disk_helper_pipe.empty()) {
+    return apfs::disk(disk_path);
+  }
+
+  FILE *fd = disk_helper_client::open_disk_via(utf8::to_wstring(disk_helper_pipe), disk_path);
+  if (!fd) {
+    throw Error("failed to open " + disk_path + " via the elevated disk helper");
+  }
+  return apfs::disk(fd);
+}
+
+} // namespace
+
 int mount_daemon(int argc, char **argv) {
   if (argc < 6) {
-    std::cerr << "usage: apfs-gui.exe <disk_path> <partition_index> <volume_index> <drive_letter> <checksum>\n";
+    std::cerr << "usage: apfs-gui.exe <disk_path> <partition_index> <volume_index> <drive_letter> <checksum> "
+                 "[disk_helper_pipe]\n";
     return 1;
   }
 
@@ -20,9 +48,12 @@ int mount_daemon(int argc, char **argv) {
   const int partition_index = std::atoi(argv[2]);
   const int volume_index = std::atoi(argv[3]);
   const std::string mount_point = argv[4];
+  // argv[5] is the checksum, only meaningful to mount_manager's own
+  // enumerate_running_mounts().
+  const std::string disk_helper_pipe = argc > 6 ? argv[6] : std::string();
 
   try {
-    apfs::disk disk(disk_path);
+    apfs::disk disk = open_disk(disk_path, disk_helper_pipe);
     if (partition_index < 0 || partition_index >= int(disk.partitions.size())) {
       std::cerr << "partition index " << partition_index << " out of range\n";
       return 1;

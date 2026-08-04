@@ -1,4 +1,5 @@
 #include "callbacks.hpp"
+#include "disk_helper_client.hpp"
 #include "mount_manager.hpp"
 #include "physical_disks.hpp"
 #include "Utf8.hpp"
@@ -51,11 +52,14 @@ void apply_existing_mounts(model::Disk &disk) {
   }
 }
 
-// Shared by load_dmg_disk (a real .dmg file) and list_disks (a real
-// \\.\PhysicalDriveN) -- both are just "a whole-disk image apfs::disk can
-// open", the only difference is where the bytes come from. Throws Error (as
-// apfs::disk does) if `fopen_path` isn't a valid partitioned disk at all;
-// callers decide whether that's worth surfacing.
+// Shared by load_dmg_disk (a real .dmg file), list_disks's .dmg
+// rediscovery, and build_disk below (a real \\.\PhysicalDriveN or a plain
+// .dmg file) -- all are just "a whole-disk image an already-open apfs::disk
+// represents", the only difference is where its bytes came from (a plain
+// fopen() for a .dmg, or the elevated disk helper for a physical drive --
+// see disk_helper_client.hpp). Throws Error (as apfs::disk's constructors
+// do) if `real_disk` isn't a valid partitioned disk at all; callers decide
+// whether that's worth surfacing.
 //
 // Note that apfs::disk() only parses the GPT partition table -- it succeeds
 // for *any* GPT disk, APFS or not. The actual "is this partition APFS"
@@ -63,8 +67,8 @@ void apply_existing_mounts(model::Disk &disk) {
 // of partitions (e.g. an EFI System Partition alongside an APFS container,
 // which is completely normal) must have each partition tried independently
 // -- one non-APFS partition must not throw away the whole disk.
-model::Disk build_disk(
-  const std::string &fopen_path, const std::string &source_path_utf8,
+model::Disk populate_disk(
+  std::unique_ptr<apfs::disk> real_disk, const std::string &source_path_utf8,
   const std::string &display_name, model::DiskKind kind, bool removable
 ) {
   model::Disk disk_item;
@@ -73,8 +77,6 @@ model::Disk build_disk(
   disk_item.expanded = true;
   disk_item.source_path = source_path_utf8;
   disk_item.name = display_name;
-
-  auto real_disk = std::make_unique<apfs::disk>(fopen_path);
 
   for (size_t raw_index = 0; raw_index < real_disk->partitions.size(); ++raw_index) {
     auto &part_info = real_disk->partitions[raw_index];
@@ -115,6 +117,14 @@ model::Disk build_disk(
   return disk_item;
 }
 
+// .dmg files: a plain fopen() is all that's needed, no elevation involved.
+model::Disk build_disk(
+  const std::string &fopen_path, const std::string &source_path_utf8, const std::string &display_name,
+  model::DiskKind kind, bool removable
+) {
+  return populate_disk(std::make_unique<apfs::disk>(fopen_path), source_path_utf8, display_name, kind, removable);
+}
+
 } // namespace
 
 namespace callbacks {
@@ -122,16 +132,29 @@ namespace callbacks {
 std::vector<model::Disk> list_disks() {
   std::vector<model::Disk> disks;
 
-  for (auto &drive : physical_disks::enumerate()) {
-    try {
-      auto disk = build_disk(drive.path, drive.path, drive.friendly_name, model::DiskKind::Physical, false);
-      if (!disk.partitions.empty()) {
-        disks.push_back(std::move(disk));
+  // Opening \\.\PhysicalDriveN for even read-only raw access is an
+  // Administrator-only operation on Windows -- this process itself runs
+  // unelevated, so both the enumeration and the open happen in the
+  // elevated disk-helper process instead (see disk_helper_client.hpp). If
+  // the user declined the UAC prompt (or it hasn't resolved yet),
+  // list_disks/open_disk just come back empty -- .dmg files below are
+  // unaffected.
+  if (disk_helper_client::start()) {
+    for (auto &drive : disk_helper_client::list_disks()) {
+      FILE *fd = disk_helper_client::open_disk(drive.path);
+      if (!fd) {
+        continue; // drive vanished, access denied, etc. -- skip, not fatal
       }
-    } catch (const Error &) {
-      // Not a valid partition table at all (or unreadable) -- skip. Most
-      // physical drives on a Windows machine won't have any APFS
-      // partitions, that's expected and not worth surfacing per-drive.
+      try {
+        auto disk = populate_disk(std::make_unique<apfs::disk>(fd), drive.path, drive.friendly_name, model::DiskKind::Physical, false);
+        if (!disk.partitions.empty()) {
+          disks.push_back(std::move(disk));
+        }
+      } catch (const Error &) {
+        // Not a valid partition table at all (or unreadable) -- skip. Most
+        // physical drives on a Windows machine won't have any APFS
+        // partitions, that's expected and not worth surfacing per-drive.
+      }
     }
   }
 
@@ -202,8 +225,17 @@ bool mount_volume(const model::Disk &disk, int partition_index, int volume_index
     return false;
   }
 
+  // A physical drive's mount helper needs the elevated disk-helper's pipe
+  // to open \\.\PhysicalDriveN itself -- it runs unelevated, same as this
+  // process (see mount_daemon.cpp). A .dmg file's helper opens it directly,
+  // so it needs no pipe.
+  const std::wstring disk_helper_pipe =
+    disk.kind == model::DiskKind::Physical ? disk_helper_client::pipe_name() : std::wstring();
+
   std::wstring error_detail;
-  auto info = mount_manager::launch_mount(utf8::to_wstring(disk.source_path), partition_index, volume_index, &error_detail);
+  auto info = mount_manager::launch_mount(
+    utf8::to_wstring(disk.source_path), partition_index, volume_index, disk_helper_pipe, &error_detail
+  );
   if (!info) {
     MessageBoxW(nullptr, error_detail.c_str(), L"Mount failed", MB_OK | MB_ICONERROR);
     return false;
@@ -214,12 +246,8 @@ bool mount_volume(const model::Disk &disk, int partition_index, int volume_index
   volume.mount_pid = info->pid;
 
   // Launching explorer.exe directly (rather than ShellExecute-ing the path
-  // itself) matters here: this process runs elevated (see app's
-  // requireAdministrator manifest), and an elevated caller trying to
-  // ShellExecute a path directly generally fails to reach the existing
-  // (non-elevated) Explorer shell. explorer.exe has its own logic to hand
-  // an "open this path" request off to that existing shell process
-  // regardless of the caller's elevation, so invoking it directly works.
+  // itself) opens it as a new Explorer window reliably regardless of
+  // whether one's already running for this desktop session.
   const std::wstring target_path = info->drive_letter + L"\\";
   ShellExecuteW(nullptr, L"open", L"explorer.exe", target_path.c_str(), nullptr, SW_SHOWNORMAL);
 
