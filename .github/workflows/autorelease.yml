@@ -2,7 +2,15 @@ name: autorelease
 
 on:
   push:
-    branches: main
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable release tag to create (for example, 1.0 or 1.1)
+        required: true
+        type: string
 
 jobs:
   build-linux-x86:
@@ -568,26 +576,58 @@ jobs:
         name: apfs-macos-x86-64
 
     - name: Set necessary variables
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        MANUAL_TAG: ${{ inputs.tag }}
       run: |
-        TAG="0.1"
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION_="$MANUAL_TAG"
+          IS_PRERELEASE=false
+        else
+          DEFAULT_BASE="0.1"
 
-        SUFFIX=$(
-          curl -s "https://api.github.com/repos/avighnac/libapfs/tags?per_page=100" |
-          jq -r --arg base "$TAG" '
-            [.[].name
-            | select(startswith($base + "-alpha-"))
-            | sub("^" + $base + "-alpha-"; "")
-            | tonumber]
-            | (max // 0) + 1
-          '
-        )
+          LATEST_STABLE=$(
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/latest" |
+            jq -r '.tag_name'
+          ) || LATEST_STABLE=""
 
-        VERSION_="$TAG-alpha-$SUFFIX"
-        YEAR=$(date +"%Y")
+          if [ -n "$LATEST_STABLE" ] && [ "$LATEST_STABLE" != "null" ]; then
+            TAG="$LATEST_STABLE"
+          else
+            TAG="$DEFAULT_BASE"
+          fi
+
+          SUFFIX=$(
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${{ github.repository }}/releases?per_page=100" |
+            jq -r --arg base "$TAG" '
+              [
+                .[].tag_name
+                | select(startswith($base + "-alpha-"))
+                | sub("^" + $base + "-alpha-"; "")
+                | select(test("^[0-9]+$"))
+                | tonumber
+              ]
+              | (max // 0) + 1
+            '
+          )
+
+          VERSION_="$TAG-alpha-$SUFFIX"
+          IS_PRERELEASE=true
+        fi
+
         RELEASE_NAME="apfs $VERSION_"
 
-        echo "VERSION_=$VERSION_" >> $GITHUB_ENV
-        echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+        echo "VERSION_=$VERSION_" >> "$GITHUB_ENV"
+        echo "RELEASE_NAME=$RELEASE_NAME" >> "$GITHUB_ENV"
+        echo "IS_PRERELEASE=$IS_PRERELEASE" >> "$GITHUB_ENV"
 
     - name: Create a GitHub release
       id: create_release
@@ -598,7 +638,7 @@ jobs:
         tag_name: ${{ env.VERSION_ }}
         release_name: ${{ env.RELEASE_NAME }}
         draft: false
-        prerelease: true
+        prerelease: ${{ env.IS_PRERELEASE }}
 
     - name: Upload executable for linux-x86-64
       uses: actions/upload-release-asset@v1
