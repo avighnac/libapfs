@@ -11,26 +11,21 @@
 
 // Given a number of bytes, returns a formatted string
 // in the appropriate higher unit
-static std::string format_size(uint64_t bytes) {
-  static constexpr const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
-  double size = bytes;
+static std::string format_size(uint64_t byte_count) {
+  static const char *units[] = {"bytes", "KB", "MB", "GB", "TB"};
+  double value = static_cast<double>(byte_count);
   int unit = 0;
-  while (size >= 1024.0 && unit < std::size(units) - 1) {
-    size /= 1024.0;
+  while (value >= 1024.0 && unit < 4) {
+    value /= 1024.0;
     ++unit;
   }
+
   std::ostringstream oss;
   if (unit == 0) {
-    oss << bytes << ' ' << units[unit];
-  } else if (size >= 100) {
-    oss << std::fixed << std::setprecision(0) << size;
-  } else if (size >= 10) {
-    oss << std::fixed << std::setprecision(1) << size;
+    oss << byte_count << " " << units[unit];
   } else {
-    oss << std::fixed << std::setprecision(2) << size;
-  }
-  if (unit != 0) {
-    oss << ' ' << units[unit];
+    oss.precision(value < 10.0 ? 2 : (value < 100.0 ? 1 : 0));
+    oss << std::fixed << value << " " << units[unit];
   }
   return oss.str();
 }

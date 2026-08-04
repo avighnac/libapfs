@@ -58,9 +58,15 @@ After this, you can use the provided `build.ps1` script to invoke `cmake` with t
 
 # Structure
 
-All the source code is contained in `src/`. Include headers are in `include/`. The `include/types` folder contains the structs that make up an APFS formatted disk, copy-pasted from Apple's official documentation (along with some custom types at the bottom of some files).
+This repository contains three different projects:
 
-The `src/verb/` directory contains 'actions' that the command-line executable can perform.
+- the main library, under `src/lib`
+- a command-line interface that uses the library, under `src/cli`
+- and a windows-only graphical user interface for mounting APFS volumes, under `src/wingui`
+
+Include headers are in `include/`. The `include/types` folder contains the structs that make up an APFS formatted disk, copy-pasted from Apple's official documentation (along with some custom types at the bottom of some files).
+
+The `src/cli/verb/` directory contains 'actions' that the command-line executable can perform.
 
 Most custom types have their own `.hpp` and `.cpp` files, for example, `BlockReader` and `BTree`. These can also be found in the `include/` and `src/` directories, respectively.
 

@@ -232,7 +232,8 @@ jobs:
           -G $generator `
           -A x64 `
           -DBUILD_STATIC=True `
-          -DBUILD_CLI=True
+          -DBUILD_CLI=True `
+          -DBUILD_GUI=True
 
         if ($LASTEXITCODE -ne 0) {
           exit $LASTEXITCODE
@@ -249,7 +250,8 @@ jobs:
     - name: Package MSVC build
       run: |
         Copy-Item build-msvc/src/lib/Release/apfs.lib package-msvc/apfs.lib
-        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs.exe
+        Copy-Item build-msvc/src/cli/Release/apfs.exe build-msvc/apfs-cli.exe
+        Copy-Item build-msvc/src/wingui/Release/apfs-gui.exe build-msvc/apfs-gui.exe
 
         Compress-Archive `
           -Path package-msvc/include,package-msvc/apfs.lib,package-msvc/apfsd.lib,package-msvc/apfs.pdb `
@@ -260,7 +262,8 @@ jobs:
       with:
         name: apfs-windows-x86-64
         path: |
-          build-msvc/apfs.exe
+          build-msvc/apfs-cli.exe
+          build-msvc/apfs-gui.exe
           build-mingw/libapfs-windows-x86-64-mingw.zip
           build-msvc/libapfs-windows-x86-64-msvc.zip
 
@@ -637,14 +640,24 @@ jobs:
         asset_name: libapfs-linux-arm64.zip
         asset_content_type: application/zip
 
-    - name: Upload executable for Windows
+    - name: Upload CLI executable for Windows
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build-msvc/apfs.exe
-        asset_name: apfs.exe
+        asset_path: build-msvc/apfs-cli.exe
+        asset_name: apfs-cli.exe
+        asset_content_type: application/x-executable
+
+    - name: Upload GUI executable for Windows
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build-msvc/apfs-gui.exe
+        asset_name: apfs-gui.exe
         asset_content_type: application/x-executable
 
     - name: Upload MinGW library for windows-x86-64

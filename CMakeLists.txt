@@ -10,8 +10,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/.cmake-deps" CACHE PATH "FetchContent dependency directory")
 
 add_subdirectory(src/lib)
-if (BUILD_CLI)
+if(BUILD_CLI)
   add_subdirectory(src/mount)
   add_subdirectory(src/cli)
 endif()
 add_subdirectory(tests)
+
+if(BUILD_GUI)
+  add_subdirectory(src/wingui)
+endif()

@@ -26,12 +26,11 @@ struct MountVerb : VolumeVerb {
     apfs::volume vol = get_volume(part, options);
 
     apfs::fuse::fuse_ctx *ctx = new apfs::fuse::fuse_ctx();
-    // these are freed by our apfs_fuse/winfsp_destroy function in fuse/winfsp_oper.cpp, no need to do it here
+    // these are freed by our apfs_fuse_destroy, no need to do it here
     ctx->disk = new apfs::disk(disk);
     ctx->part = new apfs::partition(part);
     ctx->vol = new apfs::volume(vol);
 
-    // clang-format off
     std::vector<std::string> argv = {
       "apfs",
       "-s", // single threaded
@@ -41,7 +40,6 @@ struct MountVerb : VolumeVerb {
 #endif
       options["mount"]
     };
-    // clang-format on
 
     std::vector<char *> _argv;
     for (auto &i : argv) {
