@@ -27,7 +27,8 @@ cmake -S . -B build `
     -G $generator `
     -A x64 `
     -DBUILD_STATIC=True `
-    -DBUILD_CLI=True
+    -DBUILD_CLI=True `
+    -DBUILD_GUI=True
 
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

@@ -3,16 +3,12 @@ if(NOT WIN32)
   return()
 endif()
 
-add_executable(apfs-gui WIN32 main.cpp)
+file(GLOB gui_sources CONFIGURE_DEPENDS "*.cpp")
+add_executable(apfs-gui WIN32 ${gui_sources})
 
 target_compile_definitions(apfs-gui PRIVATE UNICODE _UNICODE)
 
-# Static linking
-if (MSVC)
-  set_property(
-    TARGET apfs-gui PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
-  )
-endif()
+target_include_directories(apfs-gui PRIVATE "../../include/" "../")
 
 # Admin elevation
 if (MSVC)

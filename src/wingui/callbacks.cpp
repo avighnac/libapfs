@@ -1,6 +1,6 @@
 #include "callbacks.hpp"
-#include "MountRegistry.hpp"
-#include "PhysicalDisks.hpp"
+#include "mount_manager.hpp"
+#include "physical_disks.hpp"
 #include "Utf8.hpp"
 
 #include <libapfs/Error.hpp>

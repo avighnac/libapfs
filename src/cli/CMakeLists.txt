@@ -22,13 +22,7 @@ target_include_directories(apfs PRIVATE
 )
 
 if(BUILD_STATIC)
-  if(MSVC)
-    set_property(
-      TARGET libapfs apfs
-      PROPERTY MSVC_RUNTIME_LIBRARY
-      "MultiThreaded$<$<CONFIG:Debug>:Debug>"
-    )
-  elseif(APPLE)
+  if(APPLE)
     target_link_options(apfs PRIVATE
       -static-libstdc++
       -static-libgcc
@@ -37,7 +31,7 @@ if(BUILD_STATIC)
     target_link_options(apfs PRIVATE
       -static
     )
-  else()
+  elseif(NOT MSVC)
     target_link_options(apfs PRIVATE
       -static
       -static-libstdc++

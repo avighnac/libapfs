@@ -14,7 +14,7 @@
 // `handle` without the display side needing to know how any of that works.
 //
 // `handle` is always populated for a Disk actually returned by callbacks:: --
-// physically-attached drives (see PhysicalDisks.hpp) and .dmg files (see
+// physically-attached drives (see physical_disks.hpp) and .dmg files (see
 // callbacks::load_dmg_disk) are both just "a whole-disk image apfs::disk can
 // open".
 namespace model {
@@ -25,7 +25,7 @@ struct Volume {
   uint64_t capacity_bytes = 0;
   bool mounted = false;
 
-  // Set once mounted (see callbacks::mount_volume / MountRegistry.hpp): the
+  // Set once mounted (see callbacks::mount_volume / mount_manager.hpp): the
   // drive letter it's mounted at, and the PID of the detached
   // apfs_mount_helper process serving it. Both are only meaningful while
   // `mounted` is true, and are re-derived (not persisted) by scanning

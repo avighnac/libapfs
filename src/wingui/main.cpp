@@ -133,7 +133,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     }
     argv_ptrs.push_back(nullptr);
 
-    return run_mount_helper(argc, argv_ptrs.data());
+    return mount_daemon(argc, argv_ptrs.data());
   }
   if (wargv) {
     LocalFree(wargv);
