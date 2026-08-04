@@ -8,7 +8,7 @@ A (for now?) read-only Apple File System (APFS) implementation.
 
 **You can also mount drives to physical folders**: see [mounting](https://github.com/avighnac/libapfs#mounting-linux-and-windows)!
 
-![watch me pls](WATCHME.gif)
+<video src="WATCHME.mp4" autoplay loop muted playsinline></video>
 
 # Installation
 
@@ -52,7 +52,7 @@ cmake --build build
 
 ## Windows
 
-On Windows, things are a bit more complicated. To begin with, due to the dependency on WinFsp, you (unfortunately) need to use `msvc` to build the CLI tool. So, you will need to install "MSVC Build Tools for x64/x86 Latest" from the Visual Studio installer.
+On Windows, things are a bit more complicated. To begin with, due to the dependency on WinFsp, you (unfortunately) need to use `msvc` to build the CLI and GUI tools. So, you will need to install "MSVC Build Tools for x64/x86 Latest" from the Visual Studio installer.
 
 After this, you can use the provided `build.ps1` script to invoke `cmake` with the right arguments.
 
@@ -117,7 +117,9 @@ To unmount on Linux, run:
 ./apfs unmount --mount /path/to/mount
 ```
 
-On Windows, the filesystem will remain mounted for as long as the `apfs.exe` process runs.
+On Windows, the filesystem remains mounted for as long as the `apfs-cli.exe` process is running.
+
+Alternatively, you can use `apfs-gui.exe` (shown in the demonstration video) to mount and unmount volumes through a graphical interface.
 
 ## Without mounting (all other operating systems)
 
