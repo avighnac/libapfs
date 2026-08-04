@@ -28,6 +28,9 @@ curl -fsSL https://raw.githubusercontent.com/avighnac/libapfs/refs/heads/main/in
 
 ## Windows
 
+> [!NOTE]
+> **Windows Defender** currently flags `apfs-gui.exe` as malware. While we're not entirely sure why this happens, we can assure you that it is **not** malware! You can inspect the source code yourself or compile it from source if you'd like. `apfs-cli.exe` is **not** flagged and provides the same functionality, just without the graphical interface.
+
 Download the appropriate executable or library package for your architecture from here:
 
 ```text
