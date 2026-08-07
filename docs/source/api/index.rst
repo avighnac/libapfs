@@ -12,16 +12,6 @@ Core API
    volume
    directory_entry
 
-Internal API
---------
-
-.. toctree::
-   :maxdepth: 1
-
-   btree
-   block_reader
-   checksum
-
 Supporting Types and Utilities
 ------------------------------
 
@@ -32,3 +22,17 @@ Supporting Types and Utilities
    inode
    directory_entry_type
    error
+
+Internal API
+------------
+
+- :doc:`apfs::BTree <btree>`
+- :doc:`apfs::BlockReader <block_reader>`
+- :doc:`Checksum functions <checksum>`
+- :doc:`Types <types>`
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+
+   internal

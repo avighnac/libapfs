@@ -110,7 +110,7 @@ public:
 
 /// @brief Represents a volume within an APFS container.
 ///
-/// A single APFS volume may contain multiple volumes, each with its own
+/// A single APFS partition may contain multiple volumes, each with its own
 /// filesystem hierarchy. macOS, for example, mounts and presents these
 /// volumes separately.
 ///
