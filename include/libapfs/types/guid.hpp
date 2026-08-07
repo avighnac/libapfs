@@ -5,9 +5,9 @@
 namespace apfs {
 
 // From https://uefi.org/specs/UEFI/2.10/05_GUID_Partition_Table_Format.html
-///
-/// MBR Partition Entry
-///
+//
+// MBR Partition Entry
+//
 struct MBR_PARTITION_RECORD {
   uint8_t BootIndicator;
   uint8_t StartHead;
@@ -23,9 +23,9 @@ struct MBR_PARTITION_RECORD {
 
 #define MBR_SIGNATURE 0xAA55
 
-///
-/// MBR Partition Table
-///
+//
+// MBR Partition Table
+//
 struct MASTER_BOOT_RECORD {
   uint8_t BootStrapCode[440];
   uint8_t UniqueMbrSignature[4];
@@ -34,9 +34,9 @@ struct MASTER_BOOT_RECORD {
   uint16_t Signature;
 };
 
-///
-/// GPT Header
-///
+//
+// GPT Header
+//
 
 typedef unsigned char efi_guid_t[16];
 typedef uint64_t efi_lba_t;
@@ -60,9 +60,9 @@ struct GPT_HEADER {
   uint32_t PartitionEntryArrayCRC32;
 };
 
-///
-/// GPT Partition Entry.
-///
+//
+// GPT Partition Entry.
+//
 struct EFI_PARTITION_ENTRY {
   efi_guid_t PartitionTypeGUID;
   efi_guid_t UniquePartitionGUID;

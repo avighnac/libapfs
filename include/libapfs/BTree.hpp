@@ -21,8 +21,14 @@ struct _key_value_t {
 };
 using key_value_t = _key_value_t<bytes_t, bytes_t>;
 
-// By the way, this is actually a B+ tree
-// KeyType can have operator< and should have numeric_limits<KeyType>::max() defined
+/// NOTE: If you're using the public API, you will never actually have to use this directly yourself!
+/// This is actually a B+ tree.
+///
+/// Each non-leaf node stores keys of type `KeyType`. No keys smaller than the first `KeyType` present 
+/// in the node will ever be present in the subtree of that node, however, the same doesn't apply for the last
+/// entry. The nodes form half-open intervals, with the very last node extending to 'positive infinity'.
+///
+/// `KeyType` can have `operator<` and should have `numeric_limits<KeyType>::max()` defined.
 template <typename KeyType, typename Compare = std::less<KeyType>>
 class BTree {
   using child_t = _key_value_t<KeyType, btn_index_node_val_t>;
@@ -59,30 +65,40 @@ class BTree {
 
 public:
   btree_node_phys_t node;
-  // For a non-leaf, we'll have children
-  // For a leaf node, we'll have key-value pairs
+  /// For a non-leaf, we'll have children.
+  /// For a leaf node, we'll have key-value pairs.
   std::vector<key_value_t> key_values;
 
-  // Empty key_value_t to return for when lower_bound/upper_bound does not find anything
+  /// Empty key_value_t to return for when lower_bound/upper_bound does not find anything
   inline static key_value_t SENTINEL;
 
+  /// @brief Returns true if the current node is a leaf node and false otherwise. 
   bool is_leaf() const;
+  /// @brief Returns a typecasted version of the @ref key_values vector.
+  /// @throws If the current node is not a leaf node.
   std::vector<child_t> children() const;
 
+  /// @brief Constructs a BTree using a raw `btree_node_phys_t`, a `BlockReader`, and a custom 
+  /// comparator function.
+  ///
+  /// The comparator is optional, and will be ignored if `operator<` is defined for `KeyType`,
+  /// however, it is needed when the keys you are comparing have
+  /// variable sizes, and it is necessary to use @ref bytes_t to store them
+  /// to prevent truncation if stored with a general parent struct.
   BTree(const btree_node_phys_t &node, const BlockReader &reader, Compare lt = {});
 
-  // Finds the first key-value pair greater than or equal to `k`.
-  // `Convert` should convert virtual addresses (where applicable) to physical addresses.
+  /// @brief Finds the first key-value pair greater than or equal to `k`.
+  /// @param convert should convert virtual addresses (where applicable) to physical addresses.
   template <typename Convert>
   key_value_t lower_bound(const bytes_t &k, const Convert &convert) const;
 
-  // Finds the first key-value pair greater than `k`.
-  // `Convert` should convert virtual addresses (where applicable) to physical addresses.
+  /// @brief Finds the first key-value pair greater than `k`.
+  /// @param convert should convert virtual addresses (where applicable) to physical addresses.
   template <typename Convert>
   key_value_t upper_bound(const bytes_t &k, const Convert &convert) const;
 
-  // Finds the key-value pair that comes before `k` in the in-order traversal of the tree.
-  // `Convert` should convert virtual addresses (where applicable) to physical addresses.
+  /// @brief Finds the key-value pair that comes before `k` in the in-order traversal of the tree.
+  /// @param convert should convert virtual addresses (where applicable) to physical addresses.
   template <typename Convert>
   key_value_t prev(const bytes_t &k, const Convert &convert) const;
 };
