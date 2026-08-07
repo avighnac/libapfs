@@ -173,7 +173,9 @@ int main() {
 }
 ```
 
-Complete and comprehensive documentation can be found in `docs/`.
+# Documentation
+
+Complete and comprehensive documentation can be found at https://avighnac.github.io/libapfs/.
 
 # Resources
 
@@ -181,3 +183,7 @@ We used the following resources to write this library:
 
 - https://developer.apple.com/support/downloads/Apple-File-System-Reference.pdf
 - https://jtsylve.blog/apfs/
+
+# License
+
+This project is licensed under the MIT license.
