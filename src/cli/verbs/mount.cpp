@@ -10,6 +10,14 @@
 #include <winfsp/winfsp.h>
 #endif
 
+/// Implements the `mount` CLI verb.
+///
+/// Mounts an APFS volume natively.
+/// On Linux, this uses [libfuse](https://github.com/libfuse/libfuse), and runs in the background.
+/// You must then use `unmount` to unmount the volume.
+///
+/// On Windows, this uses [WinFsp](https://github.com/winfsp/winfsp), and the volumes remains mounted 
+/// for as long as the process runs.
 struct MountVerb : VolumeVerb {
   MountVerb() : VolumeVerb("mount", "(read-only) Mount an APFS volume") {}
 

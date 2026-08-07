@@ -2,6 +2,9 @@
 #include <iostream>
 #include <libapfs/apfs.hpp>
 
+/// Implements the `cat` CLI verb.
+///
+/// Prints the contents of a file from an APFS volume.
 struct CatVerb : VolumeVerb {
   CatVerb() : VolumeVerb("cat", "Prints the contents of a given file") {}
 

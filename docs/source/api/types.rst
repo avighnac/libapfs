@@ -16,6 +16,8 @@ Address and object identifiers
 .. doxygentypedef:: apfs::uuid_t
    :project: libapfs
 
+.. doxygentypedef:: apfs::guid_t
+   :project: libapfs
 
 Filesystem types
 ----------------

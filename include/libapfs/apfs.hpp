@@ -11,6 +11,8 @@
 
 namespace apfs {
 
+/// An array of 16 characters used to store a partition's GUID.
+/// This is what is externally exposed.
 using guid_t = std::array<uint8_t, 16>;
 
 /// Information about a partition that can then be used to load it.

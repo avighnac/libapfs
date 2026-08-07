@@ -7,6 +7,8 @@
 #include <vector>
 #include <verb.hpp>
 
+/// @brief Prints information about all available verbs.
+/// Use `help <verb>` to find out which options are required for which verbs.
 struct HelpVerb : Verb {
   HelpVerb() : Verb("help", "Prints this message") {}
 

@@ -3,9 +3,10 @@ PROJECT_BRIEF          = "A free and open-source C++ library for reading APFS fi
 
 OUTPUT_DIRECTORY       = docs/build/doxygen
 
-INPUT                  = include/libapfs
+INPUT = include/libapfs \
+        src/cli
 RECURSIVE              = YES
-FILE_PATTERNS          = *.h *.hpp
+FILE_PATTERNS          = *.cpp *.hpp
 
 EXTRACT_ALL            = NO
 EXTRACT_PRIVATE        = NO

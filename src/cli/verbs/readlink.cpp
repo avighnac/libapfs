@@ -2,6 +2,12 @@
 #include <iostream>
 #include <libapfs/apfs.hpp>
 
+/// Implements the `readlink` CLI verb.
+///
+/// Reads the path pointed to by a symbolic link.
+/// A symbolic link stores text, usually a link to another file.
+/// This command, when supplied with a path to a file that is a 
+/// symbolic link, prints this text.
 struct ReadLinkVerb : VolumeVerb {
   ReadLinkVerb() : VolumeVerb("readlink", "Reads the path pointed to by a symbolic link") {}
 

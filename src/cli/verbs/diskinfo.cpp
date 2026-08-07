@@ -4,6 +4,9 @@
 #include <util.hpp>
 #include <verb.hpp>
 
+/// Implements the `diskinfo` CLI verb.
+///
+/// Prints information about the partitions on a disk.
 struct DiskinfoVerb : Verb {
   DiskinfoVerb() : Verb("diskinfo", "Prints information about a " + color::bold("disk")) {}
 

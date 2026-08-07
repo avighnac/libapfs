@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+/// @brief A generic verb for the command-line interface.
+/// To find out exactly which options are required by each verb, use the `help` verb.
 struct Verb {
   const std::string name;
   const std::string description;

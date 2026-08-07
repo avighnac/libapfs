@@ -3,6 +3,9 @@
 #include "PartitionVerb.hpp"
 #include <libapfs/apfs.hpp>
 
+/// @brief Used for verbs that need a volume to be loaded.
+/// Inheriting from this verb lets you implement a handler that is given an @ref apfs::volume,
+/// which this class loads from command-line arguments.
 struct VolumeVerb : PartitionVerb {
   VolumeVerb(std::string name, std::string description) : PartitionVerb(name, description) {}
 

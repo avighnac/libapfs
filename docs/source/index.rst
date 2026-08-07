@@ -12,6 +12,7 @@ Documentation
 
 - :doc:`Quickstart <quickstart>`
 - :doc:`API Reference <api/index>`
+- :doc:`Command-Line Interface <cli/index>`
 
 .. toctree::
    :hidden:
@@ -21,3 +22,4 @@ Documentation
 
    quickstart
    api/index
+   cli/index

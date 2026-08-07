@@ -30,6 +30,9 @@ static std::string format_size(uint64_t byte_count) {
   return oss.str();
 }
 
+/// Implements the `info` CLI verb.
+///
+/// Prints information about a partition: including the volumes on it.
 struct InfoVerb : PartitionVerb {
   InfoVerb() : PartitionVerb("info", "Prints information about a " + color::bold("partition on a disk")) {}
 

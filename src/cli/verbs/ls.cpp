@@ -3,6 +3,9 @@
 #include <libapfs/apfs.hpp>
 #include <util.hpp>
 
+/// Implements the `ls` CLI verb.
+///
+/// Lists the contents of a directory on an APFS volume.
 struct LsVerb : VolumeVerb {
   LsVerb() : VolumeVerb("ls", "List the contents of a directory") {}
 
