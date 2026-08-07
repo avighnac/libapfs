@@ -9,7 +9,6 @@ FILE_PATTERNS          = *.h *.hpp
 
 EXTRACT_ALL            = NO
 EXTRACT_PRIVATE        = NO
-EXTRACT_PROTECTED      = NO
 EXTRACT_STATIC         = NO
 
 HIDE_UNDOC_MEMBERS     = YES
